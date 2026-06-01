@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Insentif Ujian - SMP ABBS Surakarta</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="../css/style.css" rel="stylesheet">
+<style>
+.welcome-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 70vh;
+  text-align: center;
+  padding: 40px 20px;
+  position: relative;
+}
+.welcome-screen::before {
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(96,165,250,.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 60%, rgba(52,211,153,.06) 0%, transparent 50%);
+  pointer-events:none;
+}
+.welcome-text {
+  font-size: 18px;
+  line-height: 1.8;
+  color: var(--text-secondary);
+  max-width: 620px;
+  margin-bottom: 36px;
+  font-style: italic;
+}
+.welcome-text p { margin-bottom: 12px; }
+.welcome-text .closing { margin-top: 20px; font-style: normal; font-weight: 600; color: var(--text-primary); }
+.form-area { display: none; }
+.form-area.visible { display: block; }
+.help-fab {
+  position: fixed; bottom: 24px; right: 24px;
+  width: 48px; height: 48px;
+  background: linear-gradient(135deg, var(--accent5), #7c3aed);
+  border: none; border-radius: 50%;
+  color: #fff; font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(167,139,250,.4);
+  z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .2s;
+}
+.help-fab:hover { transform: scale(1.1); box-shadow: 0 6px 24px rgba(167,139,250,.5); }
+.class-table { width:100%;border-collapse:collapse;font-size:13px }
+.class-table th,.class-table td { padding:8px 14px;border-bottom:1px solid var(--border);text-align:left }
+.class-table th { background:var(--bg-dark);font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted) }
+.class-table tr:hover td { background:rgba(255,255,255,.02) }
+</style>
+</head>
+<body>
+<div class="navbar-plasma">
+  <a class="brand" href="../">SMP ABBS Surakarta <span class="brand-badge">Insentif Ujian</span></a>
+</div>
+
+<!-- Welcome Screen -->
+<div class="content" style="max-width:1100px;margin:0 auto">
+  <div class="welcome-screen" id="welcomeScreen">
+    <div style="font-size:48px;margin-bottom:20px;opacity:.3">&#x1F4D6;</div>
+    <div class="welcome-text">
+      <p>Di balik waktu yang diberikan dan tugas yang dituntaskan,<br>ada harap yang tetap sabar menunggu dalam diam.</p>
+      <p>Semoga setiap lelah yang pernah disegerakan,<br>kini menemukan waktunya untuk kembali dengan tenang.</p>
+      <p class="closing">Silakan mengisi form berikut dengan teliti.</p>
+    </div>
+    <button class="btn btn-primary btn-lg" onclick="startForm()" style="font-size:16px;padding:14px 48px;min-width:240px">
+      &#x1F4DD; Mulai Mengisi
+    </button>
+  </div>
+
+  <!-- Form Area (hidden initially) -->
+  <div class="form-area" id="formArea">
+    <div id="periodNav" class="mb-3"></div>
+
+    <div class="form-layout">
+      <div class="form-main">
+        <div class="card">
+          <div class="card-header" id="formTitle">Form Insentif</div>
+          <div class="card-body">
+            <div id="periodInfo" class="alert alert-info mb-3">Memuat...</div>
+
+            <div class="mb-3">
+              <label class="form-label">Nama Guru</label>
+              <select class="form-select" id="teacherSelect"><option value="">-- Pilih --</option></select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Mata Pelajaran <small class="text-muted">(centang yg diampu)</small></label>
+              <div class="d-flex flex-wrap gap-2" id="subjectCheckboxes"></div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Kepanitiaan</label>
+              <select class="form-select" id="committeeSelect">
+                <option value="">-- Tidak ada --</option>
+              </select>
+            </div>
+
+            <hr>
+            <label class="form-label mb-2">Isi jumlah (angka) sesuai aktivitas:</label>
+            <div id="activitiesContainer"></div>
+
+            <button class="btn btn-primary btn-block mt-3" id="submitBtn" onclick="submitForm()">Kirim</button>
+            <div id="submitAlert" class="mt-3"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-sidebar">
+        <div class="card">
+          <div class="card-header">Status Pengisian</div>
+          <div class="card-body p-0">
+            <div class="table-wrap">
+              <table class="table table-sm">
+                <thead><tr><th>Nama Guru</th><th>Status</th></tr></thead>
+                <tbody id="statusBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Help FAB -->
+<button class="help-fab" onclick="openHelp()" title="Data siswa per kelas">?</button>
+
+<!-- Help Modal -->
+<div class="modal-overlay" id="helpModal">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-header">
+      <span>Data Jumlah Siswa per Kelas</span>
+      <button class="modal-close" onclick="closeHelp()">&times;</button>
+    </div>
+    <div class="modal-body">
+        <table class="class-table">
+        <thead><tr><th>Kelas</th><th>Jumlah Siswa</th></tr></thead>
+        <tbody id="classTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="../js/db.js"></script>
+<script>
+DB.init();
+let periods = DB.getOpenPeriods();
+if (periods.length === 0) { periods = DB.getPeriods(); }
+const teachers = DB.getTeachers();
+const subjects = DB.getSubjectList();
+let currentIdx = 0;
+let currentPeriod = periods[currentIdx] || null;
+
+function startForm() {
+  document.getElementById('welcomeScreen').style.display = 'none';
+  document.getElementById('formArea').classList.add('visible');
+  renderNav(); renderForm(); refreshStatus();
+}
+
+function openHelp() {
+  const tbody = document.getElementById('classTableBody');
+  const classes = DB.getClasses();
+  if (classes.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center py-3">Belum ada data kelas.</td></tr>';
+  } else {
+    tbody.innerHTML = classes.map(c =>
+      '<tr><td>' + c.name + '</td><td><strong>' + (c.total||0) + '</strong></td></tr>'
+    ).join('');
+  }
+  document.getElementById('helpModal').classList.add('show');
+}
+function closeHelp() { document.getElementById('helpModal').classList.remove('show'); }
+
+function renderNav() {
+  const nav = document.getElementById('periodNav');
+  if (periods.length <= 1) { nav.innerHTML = ''; return; }
+  let h = '<div class="period-nav">';
+  periods.forEach((p, i) => {
+    h += '<button class="btn btn-sm ' + (i===currentIdx?'btn-primary':'btn-outline') + '" onclick="switchPeriod(' + i + ')">' + p.name + '</button>';
+  });
+  h += '</div>';
+  nav.innerHTML = h;
+}
+
+function switchPeriod(idx) {
+  currentIdx = idx;
+  currentPeriod = periods[idx];
+  renderNav(); renderForm(); refreshStatus();
+}
+
+function renderSubjectCheckboxes(selected) {
+  const con = document.getElementById('subjectCheckboxes');
+  con.innerHTML = '';
+  subjects.forEach(s => {
+    const checked = selected && selected.includes(s) ? 'checked' : '';
+    con.innerHTML +=
+      '<label class="subj-label">' +
+        '<input type="checkbox" class="subj-cb" value="' + s + '" ' + checked + '> ' + s +
+      '</label>';
+  });
+}
+
+function renderForm() {
+  if (!currentPeriod) {
+    document.getElementById('periodInfo').innerHTML = 'Tidak ada periode aktif.';
+    document.getElementById('activitiesContainer').innerHTML = '';
+    document.getElementById('submitBtn').style.display = 'none';
+    return;
+  }
+  document.getElementById('submitBtn').style.display = '';
+  document.getElementById('formTitle').innerHTML = 'Silakan isi checklist insentif untuk ujian berikut: <strong>' + currentPeriod.name + '</strong>';
+  document.getElementById('periodInfo').innerHTML = 'Periode: <strong>' + currentPeriod.name + '</strong>';
+
+  const sel = document.getElementById('teacherSelect');
+  const submittedNames = DB.getSubmissions(currentPeriod.id).map(s => s.teacherName);
+  const available = teachers.filter(t => !submittedNames.includes(t.name));
+  sel.innerHTML = '<option value="">-- Pilih --</option>';
+  available.forEach(t => {
+    sel.innerHTML += '<option value="' + t.id + '">' + t.name + '</option>';
+  });
+
+  renderSubjectCheckboxes([]);
+
+  const cm = document.getElementById('committeeSelect');
+  const roles = DB.getCommitteeRoles();
+  cm.innerHTML = '<option value="">-- Tidak ada --</option>' + roles.map(r => '<option value="' + r + '">' + r + '</option>').join('');
+
+  const acts = DB.getPeriodActivities(currentPeriod.id);
+  const con = document.getElementById('activitiesContainer');
+  con.innerHTML = '';
+  if (acts.length === 0) {
+    con.innerHTML = '<div class="text-muted">Belum ada komponen untuk periode ini.</div>';
+    return;
+  }
+  acts.forEach(a => {
+    con.innerHTML +=
+      '<div class="activity-row">' +
+        '<div><div class="act-name">' + a.name + '</div><div class="act-unit">' + a.unit + '</div></div>' +
+        '<div style="width:120px"><input type="number" class="form-control" id="act_' + a.id + '" min="0" placeholder="0"></div>' +
+      '</div>';
+  });
+
+  document.getElementById('submitBtn').disabled = false;
+  document.getElementById('submitBtn').textContent = 'Kirim';
+  document.getElementById('submitAlert').innerHTML = '';
+}
+
+// Auto-check subjects when teacher selected
+document.getElementById('teacherSelect').addEventListener('change', function() {
+  const t = teachers.find(x => x.id === this.value);
+  renderSubjectCheckboxes(t ? (t.subjects || []) : []);
+});
+
+function getSelectedSubjects() {
+  const cbs = document.querySelectorAll('.subj-cb:checked');
+  return Array.from(cbs).map(el => el.value);
+}
+
+function submitForm() {
+  const sel = document.getElementById('teacherSelect');
+  const teacherName = sel.options[sel.selectedIndex]?.text || '';
+  const subjects = getSelectedSubjects();
+  const committeeRole = document.getElementById('committeeSelect').value;
+  const alertDiv = document.getElementById('submitAlert');
+
+  if (!sel.value) { alertDiv.innerHTML = '<div class="alert alert-danger">Pilih nama guru.</div>'; return; }
+  if (subjects.length === 0) { alertDiv.innerHTML = '<div class="alert alert-danger">Centang minimal satu mata pelajaran.</div>'; return; }
+
+  const acts = DB.getPeriodActivities(currentPeriod.id);
+  const items = [];
+  acts.forEach(a => {
+    const el = document.getElementById('act_' + a.id);
+    if (el && el.value && parseInt(el.value) > 0) items.push({ activityId: a.id, quantity: el.value });
+  });
+  if (items.length === 0) { alertDiv.innerHTML = '<div class="alert alert-danger">Isi minimal satu aktivitas.</div>'; return; }
+
+  const exist = DB.getTeacherSubmission(currentPeriod.id, teacherName);
+  if (exist) { alertDiv.innerHTML = '<div class="alert alert-warning">' + teacherName + ' sudah mengirim. Data langsung masuk hitungan insentif.</div>'; return; }
+
+  DB.addSubmission(currentPeriod.id, teacherName, subjects, committeeRole, items, 'guru');
+  document.getElementById('submitBtn').disabled = true;
+  document.getElementById('submitBtn').textContent = 'Terkirim';
+
+  if (currentIdx < periods.length - 1) {
+    alertDiv.innerHTML = '<div class="alert alert-success">Terima kasih! Mengalihkan ke ' + periods[currentIdx+1].name + '...</div>';
+    setTimeout(function() {
+      switchPeriod(currentIdx + 1);
+      alertDiv.innerHTML = '';
+      document.getElementById('submitBtn').disabled = false;
+      document.getElementById('submitBtn').textContent = 'Kirim';
+    }, 1500);
+  } else {
+    alertDiv.innerHTML = '<div class="alert alert-success">Terima kasih! Semua data telah terkirim.</div>';
+  }
+  refreshStatus();
+}
+
+function refreshStatus() {
+  const tbody = document.getElementById('statusBody');
+  if (!currentPeriod) { tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center py-3">-</td></tr>'; return; }
+  const list = DB.getSubmissionStatus(currentPeriod.id);
+  tbody.innerHTML = '';
+  list.forEach(s => {
+    let b = '';
+    if (s.status === 'submitted') b =     '<span class="badge badge-approved">Terkirim</span>';
+    else if (s.status === 'approved') b = '<span class="badge badge-approved">Disetujui</span>';
+    else if (s.status === 'rejected') b = '<span class="badge badge-rejected">Ditolak</span>';
+    else b = '<span class="badge badge-null">Belum</span>';
+    tbody.innerHTML += '<tr><td>' + s.teacherName + '</td><td>' + b + '</td></tr>';
+  });
+}
+
+</script>
+</body>
+</html>

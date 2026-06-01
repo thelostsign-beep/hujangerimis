@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboard - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="wrapper">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="content">
+    <div class="page-header">
+      <h4>Dashboard</h4>
+    </div>
+    <div class="stats-row mb-4" id="statsCards"></div>
+
+    <!-- Finance Overview -->
+    <div class="card mb-3">
+      <div class="card-header">Keuangan <span style="font-weight:400;text-transform:none" id="financePeriod"></span></div>
+      <div class="card-body">
+        <select class="form-select w-auto mb-3" id="financePeriodSelect" onchange="renderFinance()"></select>
+        <div class="stats-row" id="financeCards"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Submission Terbaru</div>
+      <div class="card-body p-0">
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Guru</th><th>Periode</th><th>Total</th><th>Status</th><th>Tanggal</th></tr></thead>
+            <tbody id="recentBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="../js/db.js"></script>
+<script>
+DB.init();
+const s = DB.getSession(); if (!s) { window.location.href = 'login.html'; }
+
+// Sidebar
+document.getElementById('sidebar').innerHTML =
+  '<div class="sidebar-header"><span class="logo-icon">&#x1F4CA;</span> Panel Admin</div>' +
+  '<a class="nav-link active" href="dashboard.html"><span class="nav-icon">&#x1F4CA;</span>Dashboard</a>' +
+  '<a class="nav-link" href="rekap.html"><span class="nav-icon">&#x1F4CB;</span>Rekap Insentif</a>' +
+  '<a class="nav-link" href="komponen.html"><span class="nav-icon">&#x2699;&#xFE0F;</span>Komponen</a>' +
+  '<a class="nav-link" href="guru.html"><span class="nav-icon">&#x1F465;</span>Guru</a>' +
+  '<a class="nav-link" href="periode.html"><span class="nav-icon">&#x1F4C5;</span>Periode</a>' +
+  '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">&#x1F6AA;</span>Logout</a>';
+
+// Stats
+const teachers = DB.getAllTeachers().filter(t=>t.isActive).length;
+const acts = DB.getActiveActivities().length;
+const subs = DB.getSubmissions();
+const totalInsentif = subs.reduce((s, sub) => s + sub.total, 0);
+document.getElementById('statsCards').innerHTML =
+  '<div class="stat-card stat-blue"><div class="stat-glow"></div><div class="stat-icon">👥</div><div class="number">' + teachers + '</div><div class="label">Guru Aktif</div></div>' +
+  '<div class="stat-card stat-purple"><div class="stat-glow"></div><div class="stat-icon">📋</div><div class="number">' + acts + '</div><div class="label">Komponen</div></div>' +
+  '<div class="stat-card stat-green"><div class="stat-glow"></div><div class="stat-icon">📝</div><div class="number">' + subs.length + '</div><div class="label">Total Submission</div></div>' +
+  '<div class="stat-card stat-yellow"><div class="stat-glow"></div><div class="stat-icon">💰</div><div class="number">Rp ' + new Intl.NumberFormat('id-ID').format(totalInsentif) + '</div><div class="label">Total Insentif</div></div>';
+
+// Finance
+function renderFinance() {
+  const pid = document.getElementById('financePeriodSelect').value;
+  const f = DB.getPeriodFinance(pid);
+  const fmt = n => 'Rp ' + new Intl.NumberFormat('id-ID').format(n);
+  document.getElementById('financeCards').innerHTML =
+    '<div class="stat-card stat-green"><div class="stat-glow"></div><div class="stat-icon">💰</div><div class="number">' + fmt(f.totalIncome) + '</div><div class="label">Income</div></div>' +
+    '<div class="stat-card stat-yellow"><div class="stat-glow"></div><div class="stat-icon">📤</div><div class="number">' + fmt(f.totalOutcome) + '</div><div class="label">Outcome</div></div>' +
+    '<div class="stat-card ' + (f.balance < 0 ? 'stat-red' : 'stat-blue') + '"><div class="stat-glow"></div><div class="stat-icon">' + (f.balance < 0 ? '⚠️' : '✅') + '</div><div class="number">' + fmt(f.balance) + '</div><div class="label">Selisih</div></div>';
+}
+const fp = document.getElementById('financePeriodSelect');
+const periods = DB.getPeriods();
+periods.forEach(p => { fp.innerHTML += '<option value="' + p.id + '">' + p.name + '</option>'; });
+renderFinance();
+
+// Recent subs
+const tbody = document.getElementById('recentBody');
+const recent = subs.slice(0, 10);
+if (recent.length === 0) {
+  tbody.innerHTML = '<tr><td colspan="5" class="text-muted text-center py-4">Belum ada submission</td></tr>';
+} else {
+  recent.forEach(s => {
+    const pname = (periods.find(p=>p.id===s.periodId)||{}).name||s.periodId;
+    const fm = new Intl.NumberFormat('id-ID').format(s.total);
+    const d = new Date(s.submittedAt).toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'});
+    let b = '<span class="badge badge-approved">Terkirim</span>';
+    tbody.innerHTML += '<tr><td>' + s.teacherName + '</td><td>' + pname + '</td><td>Rp ' + fm + '</td><td>' + b + '</td><td>' + d + '</td></tr>';
+  });
+}
+</script>
+</body>
+</html>

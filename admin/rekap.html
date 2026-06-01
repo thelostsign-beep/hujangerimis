@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Rekap Insentif - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="wrapper">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="content">
+    <div class="page-header">
+      <h4>Rekap Insentif</h4>
+      <select class="form-select w-auto" id="periodFilter" onchange="renderAll()"></select>
+    </div>
+
+    <!-- Keuangan Cards -->
+    <div class="stats-row" id="financeCards"></div>
+
+    <!-- Income -->
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between">
+        <span>Income (Dana Masuk)</span>
+        <button class="btn btn-sm btn-primary" onclick="openIncomeModal()">+ Tambah</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Tanggal</th><th>Deskripsi</th><th>Jumlah</th><th>Aksi</th></tr></thead>
+            <tbody id="incomeBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pagu per Komponen -->
+    <div class="card mb-3">
+      <div class="card-header">Pagu per Komponen <small class="text-muted" style="text-transform:none">— ubah rate, semua nominal otomatis menyesuaikan</small></div>
+      <div class="card-body p-0">
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>No</th><th>Komponen</th><th>Satuan</th><th>Rate (Rp)</th><th>Total Qty</th><th>Total Biaya</th></tr></thead>
+            <tbody id="rateBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rekap Guru -->
+    <div class="card" id="summaryCard">
+      <div class="card-header d-flex justify-content-between">
+        <span>Rekap Guru per Komponen <small class="text-muted" style="text-transform:none">— otomatis terisi dari input guru × pagu</small></span>
+        <button class="btn btn-sm btn-success" onclick="exportCSV()">📥 Export CSV</button>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-wrap">
+          <table class="table" id="summaryTable" style="min-width:800px">
+            <thead id="summaryHead"></thead>
+            <tbody id="summaryBody"></tbody>
+            <tfoot id="summaryFoot"></tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Income -->
+<div class="modal-overlay" id="incomeModal">
+  <div class="modal-box">
+    <div class="modal-header"><span>Tambah Income</span><button class="modal-close" onclick="closeIncomeModal()">&times;</button></div>
+    <div class="modal-body">
+      <div class="mb-3"><label class="form-label">Jumlah (Rp)</label><input type="number" class="form-control" id="incAmount" min="0"></div>
+      <div class="mb-3"><label class="form-label">Deskripsi</label><input class="form-control" id="incDesc" placeholder="Cth: Dana BOS"></div>
+      <div class="mb-3"><label class="form-label">Tanggal</label><input type="date" class="form-control" id="incDate"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeIncomeModal()">Batal</button>
+      <button class="btn btn-primary" onclick="saveIncome()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/db.js"></script>
+<script>
+DB.init();
+const session = DB.getSession(); if (!session) { window.location.href='login.html'; }
+const periods = DB.getPeriods();
+
+document.getElementById('sidebar').innerHTML =
+  '<div class="sidebar-header"><span class="logo-icon">&#x1F4CA;</span> Panel Admin</div>' +
+  '<a class="nav-link" href="dashboard.html"><span class="nav-icon">&#x1F4CA;</span>Dashboard</a>' +
+  '<a class="nav-link active" href="rekap.html"><span class="nav-icon">&#x1F4CB;</span>Rekap Insentif</a>' +
+  '<a class="nav-link" href="komponen.html"><span class="nav-icon">&#x2699;&#xFE0F;</span>Komponen</a>' +
+  '<a class="nav-link" href="guru.html"><span class="nav-icon">&#x1F465;</span>Guru</a>' +
+  '<a class="nav-link" href="periode.html"><span class="nav-icon">&#x1F4C5;</span>Periode</a>' +
+  '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">&#x1F6AA;</span>Logout</a>';
+
+const filter = document.getElementById('periodFilter');
+periods.forEach(p => { filter.innerHTML += '<option value="' + p.id + '">' + p.name + '</option>'; });
+
+function getPid() { return document.getElementById('periodFilter').value; }
+const rf = n => 'Rp ' + new Intl.NumberFormat('id-ID').format(n);
+const fn = n => new Intl.NumberFormat('id-ID').format(n);
+
+function renderAll() {
+  let pid = getPid();
+  if (!pid) {
+    const sel = document.getElementById('periodFilter');
+    if (sel.options.length > 0) { sel.value = sel.options[0].value; pid = sel.value; }
+    else return;
+  }
+  const acts = DB.getPeriodActivities(pid);
+  const subs = DB.getSubmissions(pid);
+  const teachers = DB.getTeachers();
+
+  // ─── Keuangan ───
+  const incomes = DB.getIncomes(pid);
+  const totalIncome = incomes.reduce((s, i) => s + i.amount, 0);
+  const totalOutcome = subs.reduce((s, sub) => s + sub.total, 0);
+  const balance = totalIncome - totalOutcome;
+  document.getElementById('financeCards').innerHTML =
+    '<div class="stat-card stat-green">' +
+      '<div class="stat-glow"></div>' +
+      '<div class="stat-icon">💰</div>' +
+      '<div class="number">' + rf(totalIncome) + '</div>' +
+      '<div class="label">Income</div></div>' +
+    '<div class="stat-card stat-yellow">' +
+      '<div class="stat-glow"></div>' +
+      '<div class="stat-icon">📤</div>' +
+      '<div class="number">' + rf(totalOutcome) + '</div>' +
+      '<div class="label">Outcome (Total Insentif)</div></div>' +
+    '<div class="stat-card ' + (balance < 0 ? 'stat-red' : 'stat-blue') + '">' +
+      '<div class="stat-glow"></div>' +
+      '<div class="stat-icon">' + (balance < 0 ? '⚠️' : '✅') + '</div>' +
+      '<div class="number">' + rf(balance) + '</div>' +
+      '<div class="label">Selisih</div></div>';
+
+  // ─── Tabel Income ───
+  const ib = document.getElementById('incomeBody');
+  ib.innerHTML = incomes.length === 0
+    ? '<tr><td colspan="4" class="text-muted text-center py-3">Belum ada income</td></tr>'
+    : incomes.map(i => '<tr><td>' + i.date + '</td><td>' + (i.description||'-') + '</td><td>' + rf(i.amount) + '</td><td><button class="btn btn-sm btn-danger" onclick="deleteIncome(\'' + i.id + '\')">Hapus</button></td></tr>').join('');
+
+  // ─── Rate Table ───
+  const rb = document.getElementById('rateBody');
+  if (acts.length === 0) {
+    rb.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-3">Belum ada komponen</td></tr>';
+  } else {
+    rb.innerHTML = acts.map((a, i) => {
+      const totalQty = subs.reduce((s, sub) => {
+        const item = sub.items.find(it => it.activityId === a.id);
+        return s + (item ? (item.approvedQty || 0) : 0);
+      }, 0);
+      return '<tr><td>' + (i+1) + '</td><td>' + a.name + '</td><td>' + a.unit + '</td>' +
+        '<td><input type="number" class="form-control form-control-sm" style="width:120px" value="' + a.rate + '" onchange="updateRate(\'' + a.id + '\',this.value)"></td>' +
+        '<td>' + fn(totalQty) + '</td><td>' + rf(totalQty * a.rate) + '</td></tr>';
+    }).join('');
+  }
+
+  // ─── Summary Table ───
+  renderTable(pid, acts, subs, teachers);
+}
+
+function renderTable(pid, acts, subs, teachers) {
+  // Header row 1: activity names with colspan=2
+  let h1 = '<tr><th class="sticky-col-2" rowspan="2">No</th><th class="sticky-col-1" rowspan="2">Nama Guru</th>' +
+    '<th rowspan="2">Mapel</th><th rowspan="2">Panitia</th>';
+  acts.forEach(a => {
+    h1 += '<th colspan="2" style="text-align:center">' + a.name + '<br><small>' + rf(a.rate) + '/' + a.unit + '</small></th>';
+  });
+  h1 += '<th rowspan="2">Total</th></tr>';
+  // Header row 2: Jumlah / Nominal
+  let h2 = '<tr>';
+  acts.forEach(() => { h2 += '<th style="min-width:60px">Jumlah</th><th style="min-width:90px">Nominal</th>'; });
+  h2 += '</tr>';
+  document.getElementById('summaryHead').innerHTML = h1 + h2;
+
+  let rows = '';
+  const colTotals = {};
+  const colQtys = {};
+  acts.forEach(a => { colTotals[a.id] = 0; colQtys[a.id] = 0; });
+  let grandTotal = 0;
+  let grandQty = 0;
+
+  const sorted = [...teachers].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+  sorted.forEach((t, i) => {
+    const sub = subs.find(s => s.teacherName === t.name);
+    const mapel = sub ? (Array.isArray(sub.subjects) ? sub.subjects.join(', ') : (sub.subjects||'-')) : '-';
+    let row = '<tr><td class="sticky-col-2">' + (i+1) + '</td><td class="sticky-col-1">' + t.name + '</td><td>' + mapel + '</td><td>';
+    let rowTotal = 0;
+
+    if (sub) {
+      row += (sub.committeeRole||'-') + '</td>';
+      acts.forEach(a => {
+        const item = sub.items.find(it => it.activityId === a.id);
+        const qty = item ? (item.approvedQty || 0) : 0;
+        const cost = qty * a.rate;
+        colQtys[a.id] += qty;
+        colTotals[a.id] += cost;
+        rowTotal += cost;
+        grandQty += qty;
+        row += '<td style="text-align:center">' + fn(qty) + '</td><td>' + (qty > 0 ? rf(cost) : '<span class="text-muted">-</span>') + '</td>';
+      });
+    } else {
+      row += '-</td>';
+      acts.forEach(() => { row += '<td class="text-muted" style="text-align:center">-</td><td class="text-muted">-</td>'; });
+    }
+
+    grandTotal += rowTotal;
+    row += '<td><strong>' + rf(rowTotal) + '</strong></td></tr>';
+    rows += row;
+  });
+  document.getElementById('summaryBody').innerHTML = rows;
+
+  let foot = '<tr style="font-weight:700;background:var(--bg-panel)"><td colspan="4">TOTAL</td>';
+  acts.forEach(a => {
+    foot += '<td style="text-align:center">' + fn(colQtys[a.id]) + '</td><td>' + rf(colTotals[a.id]) + '</td>';
+  });
+  foot += '<td>' + rf(grandTotal) + '</td></tr>';
+  document.getElementById('summaryFoot').innerHTML = foot;
+}
+
+// ─── Rate Update ───
+function updateRate(activityId, val) {
+  const v = parseInt(val);
+  if (!isNaN(v) && v >= 0) { DB.updateActivity(activityId, null, null, v); renderAll(); }
+}
+
+// ─── Income ───
+function openIncomeModal() {
+  document.getElementById('incAmount').value = '';
+  document.getElementById('incDesc').value = '';
+  document.getElementById('incDate').value = new Date().toISOString().slice(0,10);
+  document.getElementById('incomeModal').classList.add('show');
+}
+function closeIncomeModal() { document.getElementById('incomeModal').classList.remove('show'); }
+function saveIncome() {
+  const a = document.getElementById('incAmount').value;
+  if (!a || parseInt(a)<=0) return alert('Isi jumlah.');
+  DB.addIncome(getPid(), a, document.getElementById('incDesc').value, document.getElementById('incDate').value);
+  closeIncomeModal(); renderAll();
+}
+function deleteIncome(id) { if (confirm('Hapus income?')) { DB.deleteIncome(id); renderAll(); } }
+
+// ─── Export ───
+function exportCSV() {
+  let pid = getPid();
+  if (!pid) { const s = document.getElementById('periodFilter'); if (s.options.length>0) { pid = s.options[0].value; } else return; }
+  const acts = DB.getPeriodActivities(pid);
+  const subs = DB.getSubmissions(pid);
+  let csv = 'No,Nama Guru,Mapel,Panitia';
+  acts.forEach(a => { csv += ',"' + a.name + ' - Jumlah","' + a.name + ' - Nominal"'; });
+  csv += ',Total\n';
+  subs.forEach((s, i) => {
+    const mapel = Array.isArray(s.subjects) ? s.subjects.join(';') : (s.subjects||'');
+    csv += (i+1) + ',"' + s.teacherName + '","' + mapel + '","' + (s.committeeRole||'') + '"';
+    let rt = 0;
+    acts.forEach(a => {
+      const item = s.items.find(it => it.activityId === a.id);
+      const qty = item ? (item.approvedQty||0) : 0;
+      const cost = qty * a.rate;
+      rt += cost;
+      csv += ',' + qty + ',' + cost;
+    });
+    csv += ',' + rt + '\n';
+  });
+  const b = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = 'Rekap_Insentif.csv';
+  a.click();
+}
+
+renderAll();
+</script>
+</body>
+</html>

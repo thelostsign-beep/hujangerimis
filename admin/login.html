@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Login Admin - SMP ABBS</title>
+<link href="../css/style.css" rel="stylesheet">
+<style>
+body {
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;
+  background: linear-gradient(135deg, var(--bg-deep) 0%, #0a1520 100%);
+  position:relative;
+}
+body::before {
+  content:'';position:fixed;inset:0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(96,165,250,.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(52,211,153,.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(167,139,250,.06) 0%, transparent 50%);
+  pointer-events:none;
+}
+.login-card { width:380px; position:relative; }
+.login-card .card-header { font-size:14px; justify-content:center; padding:20px; gap:8px; }
+.login-card .logo-icon-lg {
+  width:48px;height:48px;border-radius:14px;
+  background:linear-gradient(135deg,var(--accent),var(--accent5));
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;margin:0 auto 12px;color:#fff;
+}
+</style>
+</head>
+<body>
+<div class="card login-card">
+  <div class="card-header">
+    <div class="logo-icon-lg">&#x1F512;</div>
+    <div style="text-align:center">
+      <div style="font-size:16px;font-weight:700;text-transform:none;color:var(--text-primary);letter-spacing:0">Panel Admin</div>
+      <div style="font-size:12px;font-weight:400;text-transform:none;color:var(--text-muted);letter-spacing:0">SMP ABBS Surakarta</div>
+    </div>
+  </div>
+  <div class="card-body" style="padding:24px">
+    <div id="loginAlert"></div>
+    <div class="mb-3">
+      <label class="form-label">Username</label>
+      <input class="form-control" id="username" value="admin" autocomplete="username">
+    </div>
+    <div class="mb-3">
+      <label class="form-label">Password</label>
+      <input type="password" class="form-control" id="password" value="admin123" autocomplete="current-password">
+    </div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()">Masuk</button>
+  </div>
+</div>
+<script src="../js/db.js"></script>
+<script>
+DB.init();
+if (DB.getSession()) window.location.href = 'dashboard.html';
+function doLogin() {
+  const u = document.getElementById('username').value;
+  const p = document.getElementById('password').value;
+  if (DB.login(u, p)) { window.location.href = 'dashboard.html'; }
+  else { document.getElementById('loginAlert').innerHTML = '<div class="alert alert-danger">Username/password salah.</div>'; }
+}
+document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+</body>
+</html>

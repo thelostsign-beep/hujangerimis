@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Komponen - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="wrapper">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="content">
+    <div class="page-header">
+      <h4>Komponen Aktivitas</h4>
+      <button class="btn btn-primary" onclick="openModal()">+ Tambah</button>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>No</th><th>Nama</th><th>Satuan</th><th>Tarif (Rp)</th><th>Status</th><th>Aksi</th></tr></thead>
+          <tbody id="actBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Opsi Kepanitiaan -->
+  <div class="card mt-4">
+    <div class="card-header">Opsi Kepanitiaan <small class="text-muted">— peran yg bisa dipilih guru saat mengisi form</small></div>
+    <div class="card-body">
+      <div class="d-flex gap-2 flex-wrap mb-3" id="rolesList"></div>
+      <div class="d-flex gap-2">
+        <input class="form-control" id="newRole" placeholder="Nama peran baru" style="max-width:260px">
+        <button class="btn btn-primary" onclick="addRole()">+ Tambah</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Kelas -->
+  <div class="card mt-4">
+    <div class="card-header d-flex justify-content-between">
+      <span>Data Kelas & Jumlah Siswa <small class="text-muted" style="text-transform:none">— referensi utk guru</small></span>
+      <button class="btn btn-sm btn-primary" onclick="openClassModal()">+ Tambah Kelas</button>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>No</th><th>Kelas</th><th>Jumlah Siswa</th><th>Aksi</th></tr></thead>
+          <tbody id="classBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Kelas -->
+<div class="modal-overlay" id="classModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="classModalTitle">Tambah Kelas</span>
+      <button class="modal-close" onclick="closeClassModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="classIdx">
+      <div class="mb-3">
+        <label class="form-label">Nama Kelas</label>
+        <input class="form-control" id="className">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Jumlah Siswa</label>
+        <input type="number" class="form-control" id="classTotal" min="0">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeClassModal()">Batal</button>
+      <button class="btn btn-primary" onclick="saveClass()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="modalTitle">Tambah Komponen</span>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId">
+      <div class="mb-3">
+        <label class="form-label">Nama Komponen</label>
+        <input class="form-control" id="actName">
+      </div>
+      <div class="grid-2 mb-3">
+        <div>
+          <label class="form-label">Satuan</label>
+          <select class="form-select" id="actUnit">
+            <option value="paket">paket</option>
+            <option value="siswa">siswa</option>
+            <option value="sesi">sesi</option>
+            <option value="kali">kali</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Tarif (Rp)</label>
+          <input type="number" class="form-control" id="actRate" min="0">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Batal</button>
+      <button class="btn btn-primary" onclick="save()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/db.js"></script>
+<script>
+DB.init(); const s = DB.getSession(); if (!s) { window.location.href='login.html'; }
+document.getElementById('sidebar').innerHTML =
+  '<div class="sidebar-header"><span class="logo-icon">&#x1F4CA;</span> Panel Admin</div>' +
+  '<a class="nav-link" href="dashboard.html"><span class="nav-icon">&#x1F4CA;</span>Dashboard</a>' +
+  '<a class="nav-link" href="rekap.html"><span class="nav-icon">&#x1F4CB;</span>Rekap Insentif</a>' +
+  '<a class="nav-link active" href="komponen.html"><span class="nav-icon">&#x2699;&#xFE0F;</span>Komponen</a>' +
+  '<a class="nav-link" href="guru.html"><span class="nav-icon">&#x1F465;</span>Guru</a>' +
+  '<a class="nav-link" href="periode.html"><span class="nav-icon">&#x1F4C5;</span>Periode</a>' +
+  '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">&#x1F6AA;</span>Logout</a>';
+
+function render() {
+  const list = DB.getAllActivities();
+  const tbody = document.getElementById('actBody');
+  tbody.innerHTML = '';
+  list.forEach((a, i) => {
+    const rf = new Intl.NumberFormat('id-ID').format(a.rate);
+    const b = a.isActive ? '<span class="badge badge-approved">Aktif</span>' : '<span class="badge badge-rejected">Nonaktif</span>';
+    tbody.innerHTML += '<tr><td>' + (i+1) + '</td><td>' + a.name + '</td><td>' + a.unit + '</td><td>Rp ' + rf + '</td><td>' + b + '</td><td>' +
+      '<button class="btn btn-sm btn-outline me-1" onclick="editAct(\'' + a.id + '\')">Edit</button>' +
+      '<button class="btn btn-sm btn-danger" onclick="delAct(\'' + a.id + '\')">Hapus</button></td></tr>';
+  });
+  renderRoles();
+  renderClasses();
+}
+
+function renderRoles() {
+  const roles = DB.getCommitteeRoles();
+  const con = document.getElementById('rolesList');
+  con.innerHTML = roles.map(r =>
+    '<span class="badge badge-approved" style="font-size:13px;text-transform:none;padding:6px 14px;gap:10px">' +
+      r + ' <button class="btn btn-sm btn-danger" style="padding:0 6px;font-size:11px;min-height:auto" onclick="removeRole(\'' + r.replace(/'/g, "\\'") + '\')">&times;</button>' +
+    '</span>'
+  ).join('');
+}
+function addRole() {
+  const inp = document.getElementById('newRole');
+  if (!inp.value.trim()) return alert('Isi nama peran.');
+  DB.addCommitteeRole(inp.value.trim());
+  inp.value = '';
+  renderRoles();
+}
+function removeRole(name) {
+  if (confirm('Hapus peran "' + name + '"?')) { DB.removeCommitteeRole(name); renderRoles(); }
+}
+
+function renderClasses() {
+  const list = DB.getClasses();
+  const tbody = document.getElementById('classBody');
+  tbody.innerHTML = list.map((c, i) =>
+    '<tr><td>' + (i+1) + '</td><td>' + c.name + '</td><td><strong>' + (c.total||0) + '</strong></td><td>' +
+    '<button class="btn btn-sm btn-outline me-1" onclick="editClass(' + i + ')">Edit</button>' +
+    '<button class="btn btn-sm btn-danger" onclick="delClass(' + i + ')">Hapus</button></td></tr>'
+  ).join('');
+}
+function openClassModal() {
+  document.getElementById('classIdx').value = '';
+  document.getElementById('className').value = '';
+  document.getElementById('classTotal').value = '';
+  document.getElementById('classModalTitle').textContent = 'Tambah Kelas';
+  document.getElementById('classModal').classList.add('show');
+}
+function editClass(idx) {
+  const list = DB.getClasses();
+  const c = list[idx];
+  document.getElementById('classIdx').value = idx;
+  document.getElementById('className').value = c.name;
+  document.getElementById('classTotal').value = c.total||0;
+  document.getElementById('classModalTitle').textContent = 'Edit Kelas';
+  document.getElementById('classModal').classList.add('show');
+}
+function closeClassModal() { document.getElementById('classModal').classList.remove('show'); }
+function delClass(idx) { if (confirm('Hapus kelas ini?')) { DB.deleteClass(idx); renderClasses(); } }
+function saveClass() {
+  const idx = document.getElementById('classIdx').value;
+  const data = {
+    name: document.getElementById('className').value,
+    total: parseInt(document.getElementById('classTotal').value)||0
+  };
+  if (!data.name) return alert('Nama kelas harus diisi.');
+  if (idx !== '') DB.updateClass(parseInt(idx), data);
+  else DB.addClass(data);
+  closeClassModal(); renderClasses();
+}
+
+function openModal() {
+  document.getElementById('editId').value = '';
+  document.getElementById('actName').value = '';
+  document.getElementById('actUnit').value = 'paket';
+  document.getElementById('actRate').value = '';
+  document.getElementById('modalTitle').textContent = 'Tambah Komponen';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+
+function editAct(id) {
+  const a = DB.getAllActivities().find(x => x.id === id);
+  if (!a) return;
+  document.getElementById('editId').value = a.id;
+  document.getElementById('actName').value = a.name;
+  document.getElementById('actUnit').value = a.unit;
+  document.getElementById('actRate').value = a.rate;
+  document.getElementById('modalTitle').textContent = 'Edit Komponen';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function delAct(id) { if (confirm('Nonaktifkan komponen ini?')) { DB.deleteActivity(id); render(); } }
+
+function save() {
+  const id = document.getElementById('editId').value;
+  const name = document.getElementById('actName').value;
+  const unit = document.getElementById('actUnit').value;
+  const rate = document.getElementById('actRate').value;
+  if (!name) return alert('Nama harus diisi.');
+  if (id) DB.updateActivity(id, name, unit, rate);
+  else DB.addActivity(name, unit, rate);
+  closeModal(); render();
+}
+
+render();
+</script>
+</body>
+</html>

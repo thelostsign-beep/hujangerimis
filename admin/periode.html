@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Periode - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="wrapper">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="content">
+    <div class="page-header">
+      <h4>Periode Ujian</h4>
+      <button class="btn btn-primary" onclick="openModal()">+ Tambah</button>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>No</th><th>Nama Periode</th><th>Status</th><th>Jml Komponen</th><th>Aksi</th></tr></thead>
+          <tbody id="periodeBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box" style="max-width:600px">
+    <div class="modal-header">
+      <span id="modalTitle">Tambah Periode</span>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId">
+      <div class="mb-3">
+        <label class="form-label">Nama Periode</label>
+        <input class="form-control" id="periodeName" placeholder="Cth: PSAS 1 2526">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="periodeStatus">
+          <option value="true">Aktif (bisa diisi guru)</option>
+          <option value="false">Tutup</option>
+        </select>
+      </div>
+      <hr>
+      <label class="form-label mb-2">Pilih komponen untuk periode ini:</label>
+      <div id="actCheckboxList"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Batal</button>
+      <button class="btn btn-primary" onclick="save()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/db.js"></script>
+<script>
+DB.init(); const s = DB.getSession(); if (!s) { window.location.href='login.html'; }
+document.getElementById('sidebar').innerHTML =
+  '<div class="sidebar-header"><span class="logo-icon">&#x1F4CA;</span> Panel Admin</div>' +
+  '<a class="nav-link" href="dashboard.html"><span class="nav-icon">&#x1F4CA;</span>Dashboard</a>' +
+  '<a class="nav-link" href="rekap.html"><span class="nav-icon">&#x1F4CB;</span>Rekap Insentif</a>' +
+  '<a class="nav-link" href="komponen.html"><span class="nav-icon">&#x2699;&#xFE0F;</span>Komponen</a>' +
+  '<a class="nav-link" href="guru.html"><span class="nav-icon">&#x1F465;</span>Guru</a>' +
+  '<a class="nav-link active" href="periode.html"><span class="nav-icon">&#x1F4C5;</span>Periode</a>' +
+  '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">&#x1F6AA;</span>Logout</a>';
+
+function render() {
+  const list = DB.getPeriods();
+  const tbody = document.getElementById('periodeBody');
+  tbody.innerHTML = '';
+  list.forEach((p, i) => {
+    const b = p.isOpen ? '<span class="badge badge-approved">Aktif</span>' : '<span class="badge badge-null">Tutup</span>';
+    const jml = DB.getPeriodActivities(p.id).length;
+    tbody.innerHTML += '<tr><td>' + (i+1) + '</td><td>' + p.name + '</td><td>' + b + '</td><td>' + jml + '</td><td>' +
+      '<button class="btn btn-sm btn-outline me-1" onclick="editPeriod(\'' + p.id + '\')">Edit</button>' +
+      '<button class="btn btn-sm btn-danger" onclick="delPeriod(\'' + p.id + '\')">Hapus</button></td></tr>';
+  });
+}
+
+function openModal() {
+  document.getElementById('editId').value = '';
+  document.getElementById('periodeName').value = '';
+  document.getElementById('periodeStatus').value = 'true';
+  renderCheckboxes([]);
+  document.getElementById('modalTitle').textContent = 'Tambah Periode';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+
+function renderCheckboxes(selectedIds) {
+  const con = document.getElementById('actCheckboxList');
+  const acts = DB.getActiveActivities();
+  if (acts.length === 0) { con.innerHTML = '<div class="text-muted">Belum ada komponen. Buat dulu di halaman Komponen.</div>'; return; }
+  con.innerHTML = '';
+  acts.forEach(a => {
+    const checked = selectedIds.includes(a.id) ? 'checked' : '';
+    con.innerHTML +=
+      '<div class="activity-row" style="cursor:pointer">' +
+        '<div><div class="act-name">' + a.name + '</div><div class="act-unit">Rp ' + new Intl.NumberFormat('id-ID').format(a.rate) + '/' + a.unit + '</div></div>' +
+        '<div><input type="checkbox" class="act-cb" value="' + a.id + '" ' + checked + ' style="width:18px;height:18px;accent-color:var(--accent)"></div>' +
+      '</div>';
+  });
+}
+
+function editPeriod(id) {
+  const p = DB.getPeriods().find(x => x.id === id);
+  if (!p) return;
+  document.getElementById('editId').value = p.id;
+  document.getElementById('periodeName').value = p.name;
+  document.getElementById('periodeStatus').value = p.isOpen ? 'true' : 'false';
+  const selected = DB.getAllPeriodActivities(p.id);
+  renderCheckboxes(selected);
+  document.getElementById('modalTitle').textContent = 'Edit Periode';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function delPeriod(id) { if (confirm('Hapus periode? Semua submission terkait juga akan terhapus.')) { DB.deletePeriod(id); render(); } }
+
+function save() {
+  const id = document.getElementById('editId').value;
+  const name = document.getElementById('periodeName').value;
+  const isOpen = document.getElementById('periodeStatus').value === 'true';
+  if (!name) return alert('Nama periode harus diisi.');
+  const cb = document.querySelectorAll('.act-cb:checked');
+  const selected = Array.from(cb).map(el => el.value);
+  if (selected.length === 0) return alert('Pilih minimal satu komponen untuk periode ini.');
+
+  let periodId = id;
+  if (id) {
+    DB.updatePeriod(id, name, isOpen);
+  } else {
+    periodId = DB.addPeriod(name).id;
+  }
+  DB.setPeriodActivities(periodId, selected);
+  closeModal(); render();
+}
+
+render();
+</script>
+</body>
+</html>

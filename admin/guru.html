@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Guru - Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="../css/style.css" rel="stylesheet">
+</head>
+<body>
+<div class="wrapper">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="content">
+    <div class="page-header">
+      <h4>Daftar Guru</h4>
+      <button class="btn btn-primary" onclick="openModal()">+ Tambah</button>
+    </div>
+    <div class="card">
+      <div class="card-body p-0">
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>No</th><th>Nama Guru</th><th>Status</th><th>Tampil</th><th>Aksi</th></tr></thead>
+            <tbody id="guruBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span id="modalTitle">Tambah Guru</span>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editId">
+      <div class="mb-3">
+        <label class="form-label">Nama Lengkap</label>
+        <input class="form-control" id="guruName">
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Batal</button>
+      <button class="btn btn-primary" onclick="save()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<script src="../js/db.js"></script>
+<script>
+DB.init(); const s = DB.getSession(); if (!s) { window.location.href='login.html'; }
+document.getElementById('sidebar').innerHTML =
+  '<div class="sidebar-header"><span class="logo-icon">&#x1F4CA;</span> Panel Admin</div>' +
+  '<a class="nav-link" href="dashboard.html"><span class="nav-icon">&#x1F4CA;</span>Dashboard</a>' +
+  '<a class="nav-link" href="rekap.html"><span class="nav-icon">&#x1F4CB;</span>Rekap Insentif</a>' +
+  '<a class="nav-link" href="komponen.html"><span class="nav-icon">&#x2699;&#xFE0F;</span>Komponen</a>' +
+  '<a class="nav-link active" href="guru.html"><span class="nav-icon">&#x1F465;</span>Guru</a>' +
+  '<a class="nav-link" href="periode.html"><span class="nav-icon">&#x1F4C5;</span>Periode</a>' +
+  '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">&#x1F6AA;</span>Logout</a>';
+
+function render() {
+  const list = DB.getAllTeachers();
+  const tbody = document.getElementById('guruBody');
+  tbody.innerHTML = '';
+  list.forEach((g, i) => {
+    const b = g.isActive ? '<span class="badge badge-approved">Aktif</span>' : '<span class="badge badge-rejected">Nonaktif</span>';
+    const h = g.hidden
+      ? '<span class="badge badge-rejected">Tersembunyi</span>'
+      : '<span class="badge badge-approved">Muncul</span>';
+    const btnHide = g.hidden
+      ? '<button class="btn btn-sm btn-outline me-1" onclick="toggleHide(\'' + g.id + '\')">Tampilkan</button>'
+      : '<button class="btn btn-sm btn-outline me-1" onclick="toggleHide(\'' + g.id + '\')">Sembunyikan</button>';
+    tbody.innerHTML += '<tr><td>' + (i+1) + '</td><td>' + g.name + '</td><td>' + b + '</td><td>' + h + '</td><td>' +
+      btnHide +
+      '<button class="btn btn-sm btn-outline me-1" onclick="editGuru(\'' + g.id + '\')">Edit</button>' +
+      '<button class="btn btn-sm btn-danger" onclick="delGuru(\'' + g.id + '\')">Hapus</button></td></tr>';
+  });
+}
+
+function openModal() {
+  document.getElementById('editId').value = '';
+  document.getElementById('guruName').value = '';
+  document.getElementById('modalTitle').textContent = 'Tambah Guru';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+
+function editGuru(id) {
+  const g = DB.getAllTeachers().find(x => x.id === id);
+  if (!g) return;
+  document.getElementById('editId').value = g.id;
+  document.getElementById('guruName').value = g.name;
+  document.getElementById('modalTitle').textContent = 'Edit Guru';
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function toggleHide(id) { DB.toggleTeacherHidden(id); render(); }
+function delGuru(id) { if (confirm('Nonaktifkan guru ini?')) { DB.deleteTeacher(id); render(); } }
+
+function save() {
+  const id = document.getElementById('editId').value;
+  const name = document.getElementById('guruName').value;
+  if (!name) return alert('Nama harus diisi.');
+  if (id) DB.updateTeacher(id, name, []);
+  else DB.addTeacher(name, []);
+  closeModal(); render();
+}
+
+render();
+</script>
+</body>
+</html>
