@@ -8,6 +8,9 @@ const DB = {
       this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       await this._loadFromSupabase();
       this._useLocal = false;
+      if (!this._data.teachers || this._data.teachers.length === 0) {
+        this._seedInitial();
+      }
     } catch (e) {
       console.warn('Supabase gagal, fallback localStorage:', e);
       this._useLocal = true;
