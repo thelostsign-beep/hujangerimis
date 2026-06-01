@@ -22,24 +22,20 @@ const DB = {
   },
 
   async _loadFromSupabase() {
-    const tables = ['admins','subject_list','committee_roles','classes','teachers','activities','periods','period_activities','incomes','submissions'];
+    const tables = ['admins','subject_list','committee_roles','classes','teachers','activities','periods','period_activities','incomes','submissions','submission_items'];
+    const results = await Promise.all(tables.map(t =>
+      this.supabase.from(t).select('*').then(r => ({ key: t, data: r.data, error: r.error }))
+    ));
     const data = {};
-    for (const t of tables) {
-      const { data: rows, error } = await this.supabase.from(t).select('*');
-      if (error) throw error;
-      data[t] = rows || [];
+    for (const r of results) {
+      if (r.error) throw r.error;
+      data[r.key] = r.data || [];
     }
-    // submissions perlu items dari submission_items
-    const { data: items, error: itemErr } = await this.supabase.from('submission_items').select('*');
-    if (!itemErr) {
-      const itemMap = {};
-      (items||[]).forEach(it => {
-        if (!itemMap[it.submission_id]) itemMap[it.submission_id] = [];
-        itemMap[it.submission_id].push(it);
-      });
-      data.submissions = data.submissions.map(s => ({ ...s, items: itemMap[s.id] || [] }));
-    }
-    // Map snake_case → camelCase for JS compat
+    const itemMap = {};
+    (data.submission_items||[]).forEach(it => {
+      if (!itemMap[it.submission_id]) itemMap[it.submission_id] = [];
+      itemMap[it.submission_id].push(it);
+    });
     this._data = {
       admins: data.admins || [],
       subject_list: (data.subject_list||[]).map(r => r.name),
@@ -69,7 +65,7 @@ const DB = {
         status: s.status || 'submitted', total: s.total || 0,
         adminNotes: s.admin_notes || '', submittedBy: s.submitted_by || 'guru',
         submittedAt: s.submitted_at, approvedAt: s.approved_at,
-        items: (s.items||[]).map(it => ({
+        items: (itemMap[s.id]||[]).map(it => ({
           id: it.id, activityId: it.activity_id,
           activityName: it.activity_name, quantity: it.quantity,
           rate: it.rate, subtotal: it.subtotal, approvedQty: it.approved_qty
@@ -81,90 +77,103 @@ const DB = {
   async _saveToSupabase() {
     if (this._useLocal) return;
     const d = this._data;
-    const _up = async (label, fn) => { try { await fn(); } catch (e) { console.warn('Sync gagal: ' + label, e); } };
 
-    await _up('subject_list', async () => {
-      await this.supabase.from('subject_list').delete().neq('name', '');
-      const rows = d.subject_list.map(s => ({ name: s }));
-      if (rows.length) await this.supabase.from('subject_list').insert(rows);
-    });
+    const tasks = [];
 
-    await _up('committee_roles', async () => {
-      await this.supabase.from('committee_roles').delete().neq('name', '');
-      if (d.committee_roles.length) await this.supabase.from('committee_roles').insert(d.committee_roles.map(r => ({ name: r })));
-    });
+    tasks.push((async () => {
+      try {
+        await this.supabase.from('subject_list').delete().neq('name', '');
+        const rows = d.subject_list.map(s => ({ name: s }));
+        if (rows.length) await this.supabase.from('subject_list').insert(rows);
+      } catch (e) { console.warn('Sync subject_list gagal:', e); }
+    })());
 
-    await _up('classes', async () => {
-      for (const c of d.classes) {
-        await this.supabase.from('classes').upsert({ name: c.name, total: c.total }, { onConflict: 'name' });
-      }
-    });
+    tasks.push((async () => {
+      try {
+        await this.supabase.from('committee_roles').delete().neq('name', '');
+        if (d.committee_roles.length) await this.supabase.from('committee_roles').insert(d.committee_roles.map(r => ({ name: r })));
+      } catch (e) { console.warn('Sync committee_roles gagal:', e); }
+    })());
 
-    await _up('teachers', async () => {
-      for (const t of d.teachers) {
-        await this.supabase.from('teachers').upsert({
-          id: t.id, name: t.name,
-          is_active: t.isActive ?? true, hidden: t.hidden ?? false
-        }, { onConflict: 'id' });
-      }
-    });
+    tasks.push((async () => {
+      try {
+        if (d.classes.length) await this.supabase.from('classes').upsert(d.classes, { onConflict: 'name' });
+      } catch (e) { console.warn('Sync classes gagal:', e); }
+    })());
 
-    await _up('activities', async () => {
-      for (const a of d.activities) {
-        await this.supabase.from('activities').upsert({
+    tasks.push((async () => {
+      try {
+        const rows = d.teachers.map(t => ({
+          id: t.id, name: t.name, is_active: t.isActive ?? true, hidden: t.hidden ?? false
+        }));
+        if (rows.length) await this.supabase.from('teachers').upsert(rows, { onConflict: 'id' });
+      } catch (e) { console.warn('Sync teachers gagal:', e); }
+    })());
+
+    tasks.push((async () => {
+      try {
+        const rows = d.activities.map(a => ({
           id: a.id, name: a.name, unit: a.unit, rate: a.rate,
           sort_order: a.sortOrder, is_active: a.isActive ?? true
-        }, { onConflict: 'id' });
-      }
-    });
+        }));
+        if (rows.length) await this.supabase.from('activities').upsert(rows, { onConflict: 'id' });
+      } catch (e) { console.warn('Sync activities gagal:', e); }
+    })());
 
-    await _up('periods', async () => {
-      for (const p of d.periods) {
-        await this.supabase.from('periods').upsert({
+    tasks.push((async () => {
+      try {
+        const rows = d.periods.map(p => ({
           id: p.id, name: p.name, is_open: p.isOpen ?? false
-        }, { onConflict: 'id' });
-      }
-    });
+        }));
+        if (rows.length) await this.supabase.from('periods').upsert(rows, { onConflict: 'id' });
+      } catch (e) { console.warn('Sync periods gagal:', e); }
+    })());
 
-    await _up('period_activities', async () => {
-      const pids = [...new Set(d.period_activities.map(x => x.periodId))];
-      for (const pid of pids) {
-        await this.supabase.from('period_activities').delete().eq('period_id', pid);
-      }
-      for (const pa of d.period_activities) {
-        await this.supabase.from('period_activities').insert({ period_id: pa.periodId, activity_id: pa.activityId });
-      }
-    });
-
-    await _up('submissions', async () => {
-      for (const s of d.submissions) {
-        const { items, ...subData } = s;
-        await this.supabase.from('submissions').upsert({
-          id: subData.id, period_id: subData.periodId, teacher_name: subData.teacherName,
-          subjects: subData.subjects, committee_role: subData.committeeRole,
-          status: subData.status, total: subData.total, admin_notes: subData.adminNotes,
-          submitted_by: subData.submittedBy, submitted_at: subData.submittedAt,
-          approved_at: subData.approvedAt
-        }, { onConflict: 'id' });
-        await this.supabase.from('submission_items').delete().eq('submission_id', subData.id);
-        if (items && items.length) {
-          await this.supabase.from('submission_items').insert(items.map(it => ({
-            id: it.id, submission_id: subData.id, activity_id: it.activityId,
-            activity_name: it.activityName, quantity: it.quantity,
-            rate: it.rate, subtotal: it.subtotal, approved_qty: it.approvedQty
+    tasks.push((async () => {
+      try {
+        if (d.period_activities.length) {
+          await this.supabase.from('period_activities').delete().neq('period_id', '');
+          await this.supabase.from('period_activities').insert(d.period_activities.map(pa => ({
+            period_id: pa.periodId, activity_id: pa.activityId
           })));
         }
-      }
-    });
+      } catch (e) { console.warn('Sync period_activities gagal:', e); }
+    })());
 
-    await _up('incomes', async () => {
-      for (const i of d.incomes) {
-        await this.supabase.from('incomes').upsert({
+    tasks.push((async () => {
+      try {
+        for (const s of d.submissions) {
+          const { items, ...subData } = s;
+          await this.supabase.from('submissions').upsert({
+            id: subData.id, period_id: subData.periodId, teacher_name: subData.teacherName,
+            subjects: subData.subjects, committee_role: subData.committeeRole,
+            status: subData.status, total: subData.total, admin_notes: subData.adminNotes,
+            submitted_by: subData.submittedBy, submitted_at: subData.submittedAt,
+            approved_at: subData.approvedAt
+          }, { onConflict: 'id' });
+          await this.supabase.from('submission_items').delete().eq('submission_id', subData.id);
+          if (items && items.length) {
+            await this.supabase.from('submission_items').insert(items.map(it => ({
+              id: it.id, submission_id: subData.id, activity_id: it.activityId,
+              activity_name: it.activityName, quantity: it.quantity,
+              rate: it.rate, subtotal: it.subtotal, approved_qty: it.approvedQty
+            })));
+          }
+        }
+      } catch (e) { console.warn('Sync submissions gagal:', e); }
+    })());
+
+    tasks.push((async () => {
+      try {
+        const rows = d.incomes.map(i => ({
           id: i.id, period_id: i.periodId, amount: i.amount,
           description: i.description || '', date: i.date
-        }, { onConflict: 'id' });
-      }
-    });
+        }));
+        if (rows.length) await this.supabase.from('incomes').upsert(rows, { onConflict: 'id' });
+      } catch (e) { console.warn('Sync incomes gagal:', e); }
+    })());
+
+    await Promise.all(tasks);
   },
 
   _seedInitial() {
