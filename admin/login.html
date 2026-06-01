@@ -1,56 +1,243 @@
 <!DOCTYPE html>
 <html lang="id">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Login Admin - SMP ABBS</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14'>📋</text></svg>">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Login — Panel Admin SIIU</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%237C6EFF'/><text x='50%' y='68%' text-anchor='middle' font-size='18'>📋</text></svg>">
 <link href="../css/style.css" rel="stylesheet">
 <style>
+html, body { height: 100%; }
 body {
-  display:flex;align-items:center;justify-content:center;
-  min-height:100vh;
-  background: linear-gradient(135deg, var(--bg-deep) 0%, #0a1520 100%);
-  position:relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
 }
-body::before {
-  content:'';position:fixed;inset:0;
-  background:
-    radial-gradient(ellipse at 20% 50%, rgba(96,165,250,.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(52,211,153,.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(167,139,250,.06) 0%, transparent 50%);
-  pointer-events:none;
+
+/* Ambient background */
+.login-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
 }
-.login-card { width:380px; position:relative; }
-.login-card .card-header { font-size:14px; justify-content:center; padding:20px; gap:8px; }
-.login-card .logo-icon-lg {
-  width:48px;height:48px;border-radius:14px;
-  background:linear-gradient(135deg,var(--accent),var(--accent5));
-  display:flex;align-items:center;justify-content:center;
-  font-size:22px;margin:0 auto 12px;color:#fff;
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: .18;
+}
+.orb-1 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, var(--accent), transparent 70%);
+  top: -15%; left: -10%;
+}
+.orb-2 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, var(--accent5), transparent 70%);
+  bottom: -10%; right: -5%;
+}
+.orb-3 {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, var(--accent2), transparent 70%);
+  top: 40%; left: 60%;
+  opacity: .1;
+}
+.grid-lines {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+/* Login container */
+.login-wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Logo mark */
+.login-logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+.login-logo {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent5) 100%);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  box-shadow: 0 8px 32px rgba(124,110,255,.4), 0 0 0 1px rgba(255,255,255,.08);
+  animation: fadeUp .4s ease both;
+}
+
+/* Card */
+.login-card {
+  background: linear-gradient(160deg, rgba(16,31,51,.95) 0%, rgba(21,36,56,.95) 100%);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px rgba(255,255,255,.05),
+    inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(16px);
+  animation: fadeUp .4s ease .05s both;
+}
+
+.login-heading {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.login-heading h1 {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -.5px;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.login-heading p {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.login-divider::before, .login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.login-input-wrap { position: relative; }
+.login-input-wrap .input-icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 14px;
+  pointer-events: none;
+}
+.login-input-wrap .form-control {
+  padding-left: 38px;
+}
+
+.login-submit {
+  margin-top: 22px;
+}
+.login-submit .btn {
+  font-size: 14.5px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  letter-spacing: -.1px;
+}
+
+.login-footer {
+  text-align: center;
+  margin-top: 22px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.login-footer a {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.login-footer a:hover { color: var(--accent); }
+
+/* Floating version info */
+.version-tag {
+  position: fixed;
+  bottom: 16px;
+  right: 20px;
+  font-size: 11px;
+  color: var(--text-muted);
+  z-index: 1;
+  letter-spacing: .3px;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 </style>
 </head>
 <body>
-<div class="card login-card">
-  <div class="card-header">
-    <div class="logo-icon-lg">&#x1F512;</div>
-    <div style="text-align:center">
-      <div style="font-size:16px;font-weight:700;text-transform:none;color:var(--text-primary);letter-spacing:0">Panel Admin</div>
-      <div style="font-size:12px;font-weight:400;text-transform:none;color:var(--text-muted);letter-spacing:0">SMP ABBS Surakarta</div>
-    </div>
+
+<div class="login-bg">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="grid-lines"></div>
+</div>
+
+<div class="login-wrap">
+  <div class="login-logo-wrap">
+    <div class="login-logo">📋</div>
   </div>
-  <div class="card-body" style="padding:24px">
+
+  <div class="login-card">
+    <div class="login-heading">
+      <h1>Panel Admin</h1>
+      <p>Sistem Insentif Ujian &mdash; SMP ABBS Surakarta</p>
+    </div>
+
     <div id="loginAlert"></div>
+
     <div class="mb-3">
       <label class="form-label">Username</label>
-      <input class="form-control" id="username" value="admin" autocomplete="username">
+      <div class="login-input-wrap">
+        <span class="input-icon">👤</span>
+        <input class="form-control" id="username" value="admin" autocomplete="username" placeholder="Masukkan username">
+      </div>
     </div>
+
     <div class="mb-3">
       <label class="form-label">Password</label>
-      <input type="password" class="form-control" id="password" value="admin123" autocomplete="current-password">
+      <div class="login-input-wrap">
+        <span class="input-icon">🔒</span>
+        <input type="password" class="form-control" id="password" value="admin123" autocomplete="current-password" placeholder="Masukkan password">
+      </div>
     </div>
-    <button class="btn btn-primary btn-block" onclick="doLogin()">Masuk</button>
+
+    <div class="login-submit">
+      <button class="btn btn-primary btn-block" id="loginBtn" onclick="doLogin()">
+        Masuk ke Panel
+      </button>
+    </div>
+
+    <div class="login-divider">atau</div>
+
+    <div class="login-footer">
+      <a href="../">← Kembali ke Form Guru</a>
+    </div>
   </div>
 </div>
+
+<div class="version-tag">SIIU v2.0</div>
+
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script src="../js/supabase.js"></script>
 <script src="../js/db.js"></script>
@@ -59,13 +246,31 @@ body::before {
   await DB.init();
   if (DB.getSession()) window.location.href = 'dashboard.html';
 })();
+
 function doLogin() {
-  const u = document.getElementById('username').value;
+  const u = document.getElementById('username').value.trim();
   const p = document.getElementById('password').value;
-  if (DB.login(u, p)) { window.location.href = 'dashboard.html'; }
-  else { document.getElementById('loginAlert').innerHTML = '<div class="alert alert-danger">Username/password salah.</div>'; }
+  const btn = document.getElementById('loginBtn');
+  if (!u || !p) {
+    document.getElementById('loginAlert').innerHTML = '<div class="alert alert-danger">Isi username dan password.</div>';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Memuat...';
+  setTimeout(() => {
+    if (DB.login(u, p)) {
+      window.location.href = 'dashboard.html';
+    } else {
+      document.getElementById('loginAlert').innerHTML = '<div class="alert alert-danger">Username atau password salah.</div>';
+      btn.disabled = false;
+      btn.textContent = 'Masuk ke Panel';
+    }
+  }, 200);
 }
-document.getElementById('password').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+document.getElementById('password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
 </script>
 </body>
 </html>

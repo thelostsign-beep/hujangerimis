@@ -3,15 +3,19 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Guru - Admin</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14'>📋</text></svg>">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="../css/style.css" rel="stylesheet">
 </head>
 <body>
 <div class="wrapper">
   <div class="sidebar" id="sidebar"></div>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
   <div class="content">
     <div class="page-header">
-      <h4>Daftar Guru</h4>
+      <div class="d-flex align-items-center gap-3">
+        <button class="mobile-menu-btn" onclick="toggleSidebar()" title="Buka menu">&#9776;</button>
+        <h4>Daftar Guru</h4>
+      </div>
       <button class="btn btn-primary" onclick="openModal()">+ Tambah</button>
     </div>
     <div class="card">
@@ -54,16 +58,35 @@
 <script>
 (async function() {
   await DB.init(); const s = DB.getSession(); if (!s) { window.location.href='login.html'; }
-  document.getElementById('sidebar').innerHTML =
-    '<div class="sidebar-header"><span class="logo-icon">&#x1F4CA;</span> Panel Admin</div>' +
-    '<a class="nav-link" href="dashboard.html"><span class="nav-icon">&#x1F4CA;</span>Dashboard</a>' +
-    '<a class="nav-link" href="rekap.html"><span class="nav-icon">&#x1F4CB;</span>Rekap Insentif</a>' +
-    '<a class="nav-link" href="komponen.html"><span class="nav-icon">&#x2699;&#xFE0F;</span>Komponen</a>' +
-    '<a class="nav-link active" href="guru.html"><span class="nav-icon">&#x1F465;</span>Guru</a>' +
-    '<a class="nav-link" href="periode.html"><span class="nav-icon">&#x1F4C5;</span>Periode</a>' +
-    '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">&#x1F6AA;</span>Logout</a>';
+  document.getElementById('sidebar').innerHTML = buildSidebar('guru');
   render();
 })();
+
+function buildSidebar(active) {
+  const links = [
+    ['dashboard.html','📊','Dashboard'],
+    ['rekap.html','📋','Rekap Insentif'],
+    ['komponen.html','⚙️','Komponen'],
+    ['guru.html','👥','Guru'],
+    ['periode.html','📅','Periode'],
+  ];
+  let nav = links.map(([href, icon, label]) =>
+    '<a class="nav-link' + (active === href.replace('.html','') ? ' active' : '') + '" href="' + href + '">' +
+    '<span class="nav-icon">' + icon + '</span>' + label + '</a>'
+  ).join('');
+  return '<div class="sidebar-header"><div class="logo-icon">📋</div>' +
+    '<div><div class="brand-name">Panel Admin</div><div class="brand-sub">SMP ABBS Surakarta</div></div></div>' +
+    '<div class="sidebar-nav">' + nav +
+    '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">🚪</span>Logout</a></div>';
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('mobile-open');
+  document.getElementById('sidebarOverlay').classList.toggle('visible');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebarOverlay').classList.remove('visible');
+}
 
 function render() {
   const list = DB.getAllTeachers();
