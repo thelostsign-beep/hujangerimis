@@ -4,17 +4,24 @@ const DB = {
   _useLocal: false,
 
   async init() {
+    // Gunakan session cache kalau ada (cepat tanpa nunggu Supabase)
+    const cached = sessionStorage.getItem('siiu_cache');
+    if (cached) {
+      try { this._data = JSON.parse(cached); } catch(e) {}
+    }
+
     try {
       this.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       await this._loadFromSupabase();
       this._useLocal = false;
+      sessionStorage.setItem('siiu_cache', JSON.stringify(this._data));
       if (!this._data.teachers || this._data.teachers.length === 0) {
         this._seedInitial();
       }
     } catch (e) {
       console.warn('Supabase gagal, fallback localStorage:', e);
       this._useLocal = true;
-      if (localStorage.getItem('siiu_init')) {
+      if (!this._data && localStorage.getItem('siiu_init')) {
         this._data = JSON.parse(localStorage.getItem('siiu'));
       }
     }
