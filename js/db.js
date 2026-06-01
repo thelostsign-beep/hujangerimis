@@ -29,44 +29,57 @@ const DB = {
   },
 
   async _loadFromSupabase() {
-    const tables = ['admins','subject_list','committee_roles','classes','teachers','activities','periods','period_activities','incomes','submissions','submission_items'];
-    const results = await Promise.all(tables.map(t =>
-      this.supabase.from(t).select('*').then(r => ({ key: t, data: r.data, error: r.error }))
-    ));
-    const data = {};
-    for (const r of results) {
-      if (r.error) throw r.error;
-      data[r.key] = r.data || [];
+    let raw;
+
+    // Coba 1 RPC call dulu (super cepat)
+    try {
+      const { data, error } = await this.supabase.rpc('get_all_data');
+      if (!error && data) raw = data;
+    } catch(e) { /* fallback below */ }
+
+    // Fallback: parallel 11 queries
+    if (!raw) {
+      const tables = ['admins','subject_list','committee_roles','classes','teachers','activities','periods','period_activities','incomes','submissions','submission_items'];
+      const results = await Promise.all(tables.map(t =>
+        this.supabase.from(t).select('*').then(r => ({ key: t, data: r.data, error: r.error }))
+      ));
+      raw = {};
+      for (const r of results) {
+        if (r.error) throw r.error;
+        raw[r.key] = r.data || [];
+      }
     }
+
     const itemMap = {};
-    (data.submission_items||[]).forEach(it => {
+    (raw.submission_items||[]).forEach(it => {
       if (!itemMap[it.submission_id]) itemMap[it.submission_id] = [];
       itemMap[it.submission_id].push(it);
     });
+
     this._data = {
-      admins: data.admins || [],
-      subject_list: (data.subject_list||[]).map(r => r.name),
-      committee_roles: (data.committee_roles||[]).map(r => r.name),
-      classes: (data.classes||[]),
-      teachers: (data.teachers||[]).map(t => ({
+      admins: raw.admins || [],
+      subject_list: (raw.subject_list||[]).map(r => r.name),
+      committee_roles: (raw.committee_roles||[]).map(r => r.name),
+      classes: (raw.classes||[]),
+      teachers: (raw.teachers||[]).map(t => ({
         id: t.id, name: t.name, subjects: t.subjects || [],
         isActive: t.is_active ?? true, hidden: t.hidden ?? false
       })),
-      activities: (data.activities||[]).sort((a,b) => (a.sort_order||0) - (b.sort_order||0)).map(a => ({
+      activities: (raw.activities||[]).sort((a,b) => (a.sort_order||0) - (b.sort_order||0)).map(a => ({
         id: a.id, name: a.name, unit: a.unit, rate: a.rate,
         sortOrder: a.sort_order, isActive: a.is_active ?? true
       })),
-      periods: (data.periods||[]).map(p => ({
+      periods: (raw.periods||[]).map(p => ({
         id: p.id, name: p.name, isOpen: p.is_open ?? false
       })),
-      period_activities: (data.period_activities||[]).map(pa => ({
+      period_activities: (raw.period_activities||[]).map(pa => ({
         periodId: pa.period_id, activityId: pa.activity_id
       })),
-      incomes: (data.incomes||[]).map(i => ({
+      incomes: (raw.incomes||[]).map(i => ({
         id: i.id, periodId: i.period_id, amount: i.amount,
         description: i.description || '', date: i.date
       })),
-      submissions: (data.submissions||[]).map(s => ({
+      submissions: (raw.submissions||[]).map(s => ({
         id: s.id, periodId: s.period_id, teacherName: s.teacher_name,
         subjects: s.subjects || [], committeeRole: s.committee_role || '',
         status: s.status || 'submitted', total: s.total || 0,
