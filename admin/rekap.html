@@ -81,23 +81,30 @@
   </div>
 </div>
 
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
 <script src="../js/db.js"></script>
 <script>
-DB.init();
-const session = DB.getSession(); if (!session) { window.location.href='login.html'; }
-const periods = DB.getPeriods();
+(async function() {
+  await DB.init();
+  const session = DB.getSession(); if (!session) { window.location.href='login.html'; }
+  const periods = DB.getPeriods();
 
-document.getElementById('sidebar').innerHTML =
-  '<div class="sidebar-header"><span class="logo-icon">&#x1F4CA;</span> Panel Admin</div>' +
-  '<a class="nav-link" href="dashboard.html"><span class="nav-icon">&#x1F4CA;</span>Dashboard</a>' +
-  '<a class="nav-link active" href="rekap.html"><span class="nav-icon">&#x1F4CB;</span>Rekap Insentif</a>' +
-  '<a class="nav-link" href="komponen.html"><span class="nav-icon">&#x2699;&#xFE0F;</span>Komponen</a>' +
-  '<a class="nav-link" href="guru.html"><span class="nav-icon">&#x1F465;</span>Guru</a>' +
-  '<a class="nav-link" href="periode.html"><span class="nav-icon">&#x1F4C5;</span>Periode</a>' +
-  '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">&#x1F6AA;</span>Logout</a>';
+  document.getElementById('sidebar').innerHTML =
+    '<div class="sidebar-header"><span class="logo-icon">&#x1F4CA;</span> Panel Admin</div>' +
+    '<a class="nav-link" href="dashboard.html"><span class="nav-icon">&#x1F4CA;</span>Dashboard</a>' +
+    '<a class="nav-link" href="rekap.html"><span class="nav-icon">&#x1F4CB;</span>Rekap Insentif</a>' +
+    '<a class="nav-link" href="komponen.html"><span class="nav-icon">&#x2699;&#xFE0F;</span>Komponen</a>' +
+    '<a class="nav-link" href="guru.html"><span class="nav-icon">&#x1F465;</span>Guru</a>' +
+    '<a class="nav-link" href="periode.html"><span class="nav-icon">&#x1F4C5;</span>Periode</a>' +
+    '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">&#x1F6AA;</span>Logout</a>';
 
-const filter = document.getElementById('periodFilter');
-periods.forEach(p => { filter.innerHTML += '<option value="' + p.id + '">' + p.name + '</option>'; });
+  const filter = document.getElementById('periodFilter');
+  periods.forEach(p => { filter.innerHTML += '<option value="' + p.id + '">' + p.name + '</option>'; });
+
+  // Run initial render
+  renderAll();
+})();
 
 function getPid() { return document.getElementById('periodFilter').value; }
 const rf = n => 'Rp ' + new Intl.NumberFormat('id-ID').format(n);
@@ -273,7 +280,6 @@ function exportCSV() {
   a.click();
 }
 
-renderAll();
 </script>
 </body>
 </html>

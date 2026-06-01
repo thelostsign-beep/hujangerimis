@@ -146,15 +146,15 @@
   </div>
 </div>
 
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
 <script src="../js/db.js"></script>
 <script>
-DB.init();
-let periods = DB.getOpenPeriods();
-if (periods.length === 0) { periods = DB.getPeriods(); }
-const teachers = DB.getTeachers();
-const subjects = DB.getSubjectList();
+let periods = [];
 let currentIdx = 0;
-let currentPeriod = periods[currentIdx] || null;
+let currentPeriod = null;
+let teachers = [];
+let subjects = [];
 
 function startForm() {
   document.getElementById('welcomeScreen').style.display = 'none';
@@ -164,11 +164,11 @@ function startForm() {
 
 function openHelp() {
   const tbody = document.getElementById('classTableBody');
-  const classes = DB.getClasses();
-  if (classes.length === 0) {
+  const cls = DB.getClasses();
+  if (cls.length === 0) {
     tbody.innerHTML = '<tr><td colspan="2" class="text-muted text-center py-3">Belum ada data kelas.</td></tr>';
   } else {
-    tbody.innerHTML = classes.map(c =>
+    tbody.innerHTML = cls.map(c =>
       '<tr><td>' + c.name + '</td><td><strong>' + (c.total||0) + '</strong></td></tr>'
     ).join('');
   }
@@ -250,12 +250,6 @@ function renderForm() {
   document.getElementById('submitAlert').innerHTML = '';
 }
 
-// Auto-check subjects when teacher selected
-document.getElementById('teacherSelect').addEventListener('change', function() {
-  const t = teachers.find(x => x.id === this.value);
-  renderSubjectCheckboxes(t ? (t.subjects || []) : []);
-});
-
 function getSelectedSubjects() {
   const cbs = document.querySelectorAll('.subj-cb:checked');
   return Array.from(cbs).map(el => el.value);
@@ -264,12 +258,12 @@ function getSelectedSubjects() {
 function submitForm() {
   const sel = document.getElementById('teacherSelect');
   const teacherName = sel.options[sel.selectedIndex]?.text || '';
-  const subjects = getSelectedSubjects();
+  const subs = getSelectedSubjects();
   const committeeRole = document.getElementById('committeeSelect').value;
   const alertDiv = document.getElementById('submitAlert');
 
   if (!sel.value) { alertDiv.innerHTML = '<div class="alert alert-danger">Pilih nama guru.</div>'; return; }
-  if (subjects.length === 0) { alertDiv.innerHTML = '<div class="alert alert-danger">Centang minimal satu mata pelajaran.</div>'; return; }
+  if (subs.length === 0) { alertDiv.innerHTML = '<div class="alert alert-danger">Centang minimal satu mata pelajaran.</div>'; return; }
 
   const acts = DB.getPeriodActivities(currentPeriod.id);
   const items = [];
@@ -282,7 +276,7 @@ function submitForm() {
   const exist = DB.getTeacherSubmission(currentPeriod.id, teacherName);
   if (exist) { alertDiv.innerHTML = '<div class="alert alert-warning">' + teacherName + ' sudah mengirim. Data langsung masuk hitungan insentif.</div>'; return; }
 
-  DB.addSubmission(currentPeriod.id, teacherName, subjects, committeeRole, items, 'guru');
+  DB.addSubmission(currentPeriod.id, teacherName, subs, committeeRole, items, 'guru');
   document.getElementById('submitBtn').disabled = true;
   document.getElementById('submitBtn').textContent = 'Terkirim';
 
@@ -315,6 +309,21 @@ function refreshStatus() {
   });
 }
 
+(async function() {
+  await DB.init();
+  periods = DB.getOpenPeriods();
+  if (periods.length === 0) periods = DB.getPeriods();
+  teachers = DB.getTeachers();
+  subjects = DB.getSubjectList();
+  currentIdx = 0;
+  currentPeriod = periods[currentIdx] || null;
+  if (currentPeriod) { document.getElementById('formTitle').innerHTML = 'Silakan isi checklist insentif untuk ujian berikut: <strong>' + currentPeriod.name + '</strong>'; }
+
+  document.getElementById('teacherSelect').addEventListener('change', function() {
+    const t = teachers.find(x => x.id === this.value);
+    renderSubjectCheckboxes(t ? (t.subjects || []) : []);
+  });
+})();
 </script>
 </body>
 </html>

@@ -50,10 +50,14 @@ body::before {
     <button class="btn btn-primary btn-block" onclick="doLogin()">Masuk</button>
   </div>
 </div>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
 <script src="../js/db.js"></script>
 <script>
-DB.init();
-if (DB.getSession()) window.location.href = 'dashboard.html';
+(async function() {
+  await DB.init();
+  if (DB.getSession()) window.location.href = 'dashboard.html';
+})();
 function doLogin() {
   const u = document.getElementById('username').value;
   const p = document.getElementById('password').value;

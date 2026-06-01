@@ -47,17 +47,22 @@
   </div>
 </div>
 
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
 <script src="../js/db.js"></script>
 <script>
-DB.init(); const s = DB.getSession(); if (!s) { window.location.href='login.html'; }
-document.getElementById('sidebar').innerHTML =
-  '<div class="sidebar-header"><span class="logo-icon">&#x1F4CA;</span> Panel Admin</div>' +
-  '<a class="nav-link" href="dashboard.html"><span class="nav-icon">&#x1F4CA;</span>Dashboard</a>' +
-  '<a class="nav-link" href="rekap.html"><span class="nav-icon">&#x1F4CB;</span>Rekap Insentif</a>' +
-  '<a class="nav-link" href="komponen.html"><span class="nav-icon">&#x2699;&#xFE0F;</span>Komponen</a>' +
-  '<a class="nav-link active" href="guru.html"><span class="nav-icon">&#x1F465;</span>Guru</a>' +
-  '<a class="nav-link" href="periode.html"><span class="nav-icon">&#x1F4C5;</span>Periode</a>' +
-  '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">&#x1F6AA;</span>Logout</a>';
+(async function() {
+  await DB.init(); const s = DB.getSession(); if (!s) { window.location.href='login.html'; }
+  document.getElementById('sidebar').innerHTML =
+    '<div class="sidebar-header"><span class="logo-icon">&#x1F4CA;</span> Panel Admin</div>' +
+    '<a class="nav-link" href="dashboard.html"><span class="nav-icon">&#x1F4CA;</span>Dashboard</a>' +
+    '<a class="nav-link" href="rekap.html"><span class="nav-icon">&#x1F4CB;</span>Rekap Insentif</a>' +
+    '<a class="nav-link" href="komponen.html"><span class="nav-icon">&#x2699;&#xFE0F;</span>Komponen</a>' +
+    '<a class="nav-link active" href="guru.html"><span class="nav-icon">&#x1F465;</span>Guru</a>' +
+    '<a class="nav-link" href="periode.html"><span class="nav-icon">&#x1F4C5;</span>Periode</a>' +
+    '<a class="nav-link logout" href="login.html" onclick="DB.logout()"><span class="nav-icon">&#x1F6AA;</span>Logout</a>';
+  render();
+})();
 
 function render() {
   const list = DB.getAllTeachers();
@@ -107,7 +112,6 @@ function save() {
   closeModal(); render();
 }
 
-render();
 </script>
 </body>
 </html>

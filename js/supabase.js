@@ -1,0 +1,2 @@
+const SUPABASE_URL = 'https://humbozgfoxttkocqssrz.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1bWJvemdmb3h0dGtvY3Fzc3J6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODkxMDIsImV4cCI6MjA5NTg2NTEwMn0.RPC5TqcGuia1Ejg8Ik6JKfHFJiqle7drCe0SmqB9AXQ';
