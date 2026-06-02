@@ -364,16 +364,11 @@ function renderForm() {
     return;
   }
   acts.forEach(a => {
-    const unitLabel = '<span class="act-unit">per ' + a.unit + '</span>';
     con.innerHTML +=
-      '<div class="activity-row">' +
-        '<div>' +
-          '<div class="act-name">' + a.name + '</div>' +
-          unitLabel +
-        '</div>' +
-        '<div style="width:110px">' +
-          '<input type="number" class="form-control" id="act_' + a.id + '" min="0" placeholder="0" style="text-align:center;font-weight:600">' +
-        '</div>' +
+      '<div class="activity-inline">' +
+        '<span class="act-label">' + a.name + '</span>' +
+        '<input type="number" class="act-qty" id="act_' + a.id + '" min="0" placeholder="0">' +
+        '<span class="act-unit-label">' + a.unit + '</span>' +
       '</div>';
   });
 
