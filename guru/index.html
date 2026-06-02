@@ -364,9 +364,7 @@ function renderForm() {
     return;
   }
   acts.forEach(a => {
-    const unitLabel = a.rate > 0
-      ? '<span class="act-unit">per ' + a.unit + ' · Rp ' + new Intl.NumberFormat('id-ID').format(a.rate) + '</span>'
-      : '<span class="act-unit">per ' + a.unit + '</span>';
+    const unitLabel = '<span class="act-unit">per ' + a.unit + '</span>';
     con.innerHTML +=
       '<div class="activity-row">' +
         '<div>' +
