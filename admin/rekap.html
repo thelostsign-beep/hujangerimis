@@ -65,10 +65,11 @@
             <tfoot id="summaryFoot"></tfoot>
           </table>
         </div>
-      </div>
     </div>
   </div>
 </div>
+
+<datalist id="committeeList"></datalist>
 
 <!-- Modal Income -->
 <div class="modal-overlay" id="incomeModal">
@@ -189,6 +190,7 @@ function renderTable(pid, acts, subs, teachers) {
   let grandQty = 0;
 
   const sorted = [...teachers].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  const safeName = n => n.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
   sorted.forEach((t, i) => {
     const sub = subs.find(s => s.teacherName === t.name);
@@ -197,19 +199,21 @@ function renderTable(pid, acts, subs, teachers) {
     let rowTotal = 0;
 
     if (sub) {
-      row += (sub.committeeRole||'-') + '</td>';
+      const curRole = sub.committeeRole || '';
+      const sn = safeName(t.name);
+      row += '<input type="text" class="form-control form-control-sm" style="min-width:120px" list="committeeList" value="' + curRole.replace(/"/g, '&quot;') + '" onchange="updateRekapPanitia(\'' + sn + '\', this.value)"></td>';
       acts.forEach(a => {
         const item = sub.items.find(it => it.activityId === a.id);
-        const qty = item ? (item.approvedQty || 0) : 0;
+        const qty = item ? (item.approvedQty !== null && item.approvedQty !== undefined ? item.approvedQty : (item.quantity || 0)) : 0;
         const cost = qty * a.rate;
         colQtys[a.id] += qty;
         colTotals[a.id] += cost;
         rowTotal += cost;
         grandQty += qty;
-        row += '<td style="text-align:center">' + fn(qty) + '</td><td>' + (qty > 0 ? rf(cost) : '<span class="text-muted">-</span>') + '</td>';
+        row += '<td style="text-align:center"><input type="number" min="0" class="form-control form-control-sm" style="width:70px;margin:auto;text-align:center" value="' + qty + '" onchange="updateRekapQty(\'' + sn + '\',\'' + a.id + '\',this.value)"></td><td>' + (qty > 0 ? rf(cost) : '<span class="text-muted">-</span>') + '</td>';
       });
     } else {
-      row += '-</td>';
+      row += '<span class="text-muted">-</span></td>';
       acts.forEach(() => { row += '<td class="text-muted" style="text-align:center">-</td><td class="text-muted">-</td>'; });
     }
 
@@ -218,6 +222,9 @@ function renderTable(pid, acts, subs, teachers) {
     rows += row;
   });
   document.getElementById('summaryBody').innerHTML = rows;
+
+  const dl = document.getElementById('committeeList');
+  if (dl) dl.innerHTML = DB.getCommitteeRoles().map(r => '<option value="' + r.replace(/"/g, '&quot;') + '"></option>').join('');
 
   let foot = '<tr style="font-weight:700;background:var(--bg-panel)"><td colspan="4">TOTAL</td>';
   acts.forEach(a => {
@@ -231,6 +238,23 @@ function renderTable(pid, acts, subs, teachers) {
 function updateRate(activityId, val) {
   const v = parseInt(val);
   if (!isNaN(v) && v >= 0) { DB.updateActivity(activityId, null, null, v); renderAll(); }
+}
+
+// ─── Rekap Inline Edit ───
+function updateRekapQty(teacherName, activityId, val) {
+  const pid = getPid();
+  const sub = DB.getTeacherSubmission(pid, teacherName);
+  if (!sub) return;
+  DB.upsertSubmissionItem(sub.id, activityId, val);
+  renderAll();
+}
+
+function updateRekapPanitia(teacherName, role) {
+  const pid = getPid();
+  const sub = DB.getTeacherSubmission(pid, teacherName);
+  if (!sub) return;
+  DB.updateSubmissionCommitteeRole(sub.id, role);
+  renderAll();
 }
 
 // ─── Income ───

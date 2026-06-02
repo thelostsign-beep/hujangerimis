@@ -440,6 +440,38 @@ const DB = {
     this._saveToSupabase();
   },
 
+  upsertSubmissionItem(submissionId, activityId, qty) {
+    const sub = this._data.submissions.find(s => s.id === submissionId);
+    if (!sub) return;
+    const v = Math.max(0, parseInt(qty) || 0);
+    let item = sub.items.find(i => i.activityId === activityId);
+    if (!item) {
+      const act = this._data.activities.find(a => a.id === activityId);
+      if (!act) return;
+      item = {
+        id: 'si' + Date.now() + Math.random().toString(36).slice(2, 6),
+        activityId: act.id,
+        activityName: act.name,
+        quantity: v, rate: act.rate,
+        subtotal: v * act.rate, approvedQty: v
+      };
+      sub.items.push(item);
+    } else {
+      item.quantity = v;
+      item.approvedQty = v;
+      item.subtotal = v * item.rate;
+    }
+    sub.total = sub.items.reduce((sum, i) => sum + ((i.approvedQty !== null ? i.approvedQty : i.quantity) * i.rate), 0);
+    this._saveToSupabase();
+  },
+
+  updateSubmissionCommitteeRole(submissionId, role) {
+    const sub = this._data.submissions.find(s => s.id === submissionId);
+    if (!sub) return;
+    sub.committeeRole = role || '';
+    this._saveToSupabase();
+  },
+
   updateSubmissionMeta(submissionId, fields) {
     const sub = this._data.submissions.find(s => s.id === submissionId);
     if (!sub) return;
