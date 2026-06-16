@@ -418,7 +418,7 @@ const DB = {
     (this._data.submissions || []).forEach(s => this._recalcSubmission(s));
   },
 
-  addSubmission(periodId, teacherName, subjects, committeeRole, items, submittedBy) {
+  async addSubmission(periodId, teacherName, subjects, committeeRole, items, submittedBy) {
     const activities = this.getActiveActivities();
     const subItems = items.map(item => {
       const act = activities.find(a => a.id === item.activityId);
@@ -443,8 +443,40 @@ const DB = {
     sub.items.forEach(item => { item.approvedQty = item.quantity; });
     this._recalcSubmission(sub);
     this._data.submissions.push(sub);
-    this._saveToSupabase();
+    try {
+      await this._saveSubmission(sub);
+    } catch (e) {
+      // Rollback dari memori supaya guru bisa kirim ulang (nama muncul lagi di dropdown)
+      this._data.submissions = this._data.submissions.filter(s => s.id !== sub.id);
+      throw e;
+    }
+    try { sessionStorage.setItem('siiu_cache', JSON.stringify(this._data)); } catch (e) {}
     return sub;
+  },
+
+  // Simpan SATU submission + itemnya saja (bukan seluruh daftar). Throw kalau gagal,
+  // supaya pemanggil tahu data BELUM masuk dan bisa minta guru kirim ulang.
+  async _saveSubmission(sub) {
+    if (this._useLocal) throw new Error('Tidak terhubung ke server (mode offline).');
+    const { items, ...s } = sub;
+    const { error: e1 } = await this.supabase.from('submissions').upsert({
+      id: s.id, period_id: s.periodId, teacher_name: s.teacherName,
+      subjects: s.subjects, committee_role: s.committeeRole,
+      status: s.status, total: s.total, admin_notes: s.adminNotes,
+      submitted_by: s.submittedBy, submitted_at: s.submittedAt,
+      approved_at: s.approvedAt
+    }, { onConflict: 'id' });
+    if (e1) throw e1;
+    const { error: eDel } = await this.supabase.from('submission_items').delete().eq('submission_id', s.id);
+    if (eDel) throw eDel;
+    if (items && items.length) {
+      const { error: e2 } = await this.supabase.from('submission_items').insert(items.map(it => ({
+        id: it.id, submission_id: s.id, activity_id: it.activityId,
+        activity_name: it.activityName, quantity: it.quantity,
+        rate: it.rate, subtotal: it.subtotal, approved_qty: it.approvedQty
+      })));
+      if (e2) throw e2;
+    }
   },
 
   updateSubmissionItem(submissionId, itemId, field, value) {

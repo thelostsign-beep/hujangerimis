@@ -381,7 +381,7 @@ function getSelectedSubjects() {
   return Array.from(document.querySelectorAll('.subj-cb:checked')).map(el => el.value);
 }
 
-function submitForm() {
+async function submitForm() {
   const sel = document.getElementById('teacherSelect');
   const teacherName = sel.options[sel.selectedIndex]?.text || '';
   const subs = getSelectedSubjects();
@@ -411,10 +411,20 @@ function submitForm() {
     return;
   }
 
-  DB.addSubmission(currentPeriod.id, teacherName, subs, committeeRole, items, 'guru');
-
   const btn = document.getElementById('submitBtn');
   btn.disabled = true;
+  btn.innerHTML = '⏳ Mengirim...';
+
+  try {
+    await DB.addSubmission(currentPeriod.id, teacherName, subs, committeeRole, items, 'guru');
+  } catch (e) {
+    console.error('Gagal kirim submission:', e);
+    alertDiv.innerHTML = '<div class="alert alert-danger">❌ Gagal mengirim. Data Anda <strong>belum tersimpan</strong>. Periksa koneksi internet lalu klik <strong>Kirim Data Insentif</strong> lagi.</div>';
+    btn.disabled = false;
+    btn.innerHTML = 'Kirim Data Insentif';
+    return;
+  }
+
   btn.innerHTML = '✅ Terkirim';
 
   if (currentIdx < periods.length - 1) {

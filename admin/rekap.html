@@ -286,29 +286,31 @@ function updateRoleNominal(name, val) {
 
 // ─── Rekap Inline Edit ───
 // Buat submission baru atas nama guru bila admin mengisi manual padahal guru belum input
-function ensureSubmission(teacherName) {
+async function ensureSubmission(teacherName) {
   const pid = getPid();
   const t = DB.getRekapTeachers().find(x => x.name === teacherName);
-  return DB.addSubmission(pid, teacherName, t ? t.subjects : [], '', [], 'admin');
+  return await DB.addSubmission(pid, teacherName, t ? t.subjects : [], '', [], 'admin');
 }
 
-function updateRekapQty(teacherName, activityId, val) {
+async function updateRekapQty(teacherName, activityId, val) {
   const pid = getPid();
   let sub = DB.getTeacherSubmission(pid, teacherName);
   if (!sub) {
     if ((parseInt(val) || 0) <= 0) { renderAll(); return; }
-    sub = ensureSubmission(teacherName);
+    try { sub = await ensureSubmission(teacherName); }
+    catch (e) { alert('Gagal menyimpan ke server. Periksa koneksi lalu coba lagi.'); renderAll(); return; }
   }
   DB.upsertSubmissionItem(sub.id, activityId, val);
   renderAll();
 }
 
-function updateRekapPanitia(teacherName, role) {
+async function updateRekapPanitia(teacherName, role) {
   const pid = getPid();
   let sub = DB.getTeacherSubmission(pid, teacherName);
   if (!sub) {
     if (!role) { renderAll(); return; }
-    sub = ensureSubmission(teacherName);
+    try { sub = await ensureSubmission(teacherName); }
+    catch (e) { alert('Gagal menyimpan ke server. Periksa koneksi lalu coba lagi.'); renderAll(); return; }
   }
   DB.updateSubmissionCommitteeRole(sub.id, role);
   renderAll();
