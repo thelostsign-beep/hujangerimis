@@ -354,7 +354,7 @@ function renderForm() {
 
   const cm = document.getElementById('committeeSelect');
   const roles = DB.getCommitteeRoles();
-  cm.innerHTML = '<option value="">— Tidak ada —</option>' + roles.map(r => '<option value="' + r + '">' + r + '</option>').join('');
+  cm.innerHTML = '<option value="">— Tidak ada —</option>' + roles.map(r => '<option value="' + r.name + '">' + r.name + '</option>').join('');
 
   const acts = DB.getPeriodActivities(currentPeriod.id);
   const con = document.getElementById('activitiesContainer');
@@ -405,11 +405,6 @@ function submitForm() {
       items.push({ activityId: a.id, quantity: el.value });
     }
   });
-  if (items.length === 0) {
-    alertDiv.innerHTML = '<div class="alert alert-danger">Isi minimal satu aktivitas dengan angka lebih dari 0.</div>';
-    return;
-  }
-
   const exist = DB.getTeacherSubmission(currentPeriod.id, teacherName);
   if (exist) {
     alertDiv.innerHTML = '<div class="alert alert-warning">' + teacherName + ' sudah mengirim data untuk periode ini.</div>';

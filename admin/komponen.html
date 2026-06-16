@@ -31,11 +31,17 @@
 
   <!-- Opsi Kepanitiaan -->
   <div class="card mt-4">
-    <div class="card-header">Opsi Kepanitiaan <small class="text-muted">— peran yg bisa dipilih guru saat mengisi form</small></div>
+    <div class="card-header">Opsi Kepanitiaan <small class="text-muted">— peran & nominal; nominal otomatis masuk ke total insentif guru</small></div>
     <div class="card-body">
-      <div class="d-flex gap-2 flex-wrap mb-3" id="rolesList"></div>
-      <div class="d-flex gap-2">
-        <input class="form-control" id="newRole" placeholder="Nama peran baru" style="max-width:260px">
+      <div class="table-wrap mb-3">
+        <table class="table">
+          <thead><tr><th>Peran</th><th>Nominal (Rp)</th><th>Aksi</th></tr></thead>
+          <tbody id="rolesList"></tbody>
+        </table>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <input class="form-control" id="newRole" placeholder="Nama peran baru" style="max-width:240px">
+        <input type="number" class="form-control" id="newRoleNominal" placeholder="Nominal (Rp)" min="0" style="max-width:180px">
         <button class="btn btn-primary" onclick="addRole()">+ Tambah</button>
       </div>
     </div>
@@ -171,19 +177,28 @@ function render() {
 
 function renderRoles() {
   const roles = DB.getCommitteeRoles();
-  const con = document.getElementById('rolesList');
-  con.innerHTML = roles.map(r =>
-    '<span class="badge badge-approved" style="font-size:13px;text-transform:none;padding:6px 14px;gap:10px">' +
-      r + ' <button class="btn btn-sm btn-danger" style="padding:0 6px;font-size:11px;min-height:auto" onclick="removeRole(\'' + r.replace(/'/g, "\\'") + '\')">&times;</button>' +
-    '</span>'
-  ).join('');
+  const tbody = document.getElementById('rolesList');
+  if (!roles.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="text-muted text-center py-3">Belum ada peran kepanitiaan.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = roles.map(r => {
+    const nm = r.name.replace(/'/g, "\\'");
+    return '<tr><td>' + r.name + '</td>' +
+      '<td><input type="number" class="form-control form-control-sm" style="width:150px" min="0" value="' + (r.nominal||0) + '" onchange="updateRoleNominal(\'' + nm + '\', this.value)"></td>' +
+      '<td><button class="btn btn-sm btn-danger" onclick="removeRole(\'' + nm + '\')">Hapus</button></td></tr>';
+  }).join('');
 }
 function addRole() {
   const inp = document.getElementById('newRole');
+  const nom = document.getElementById('newRoleNominal');
   if (!inp.value.trim()) return alert('Isi nama peran.');
-  DB.addCommitteeRole(inp.value.trim());
-  inp.value = '';
+  DB.addCommitteeRole(inp.value.trim(), nom.value);
+  inp.value = ''; nom.value = '';
   renderRoles();
+}
+function updateRoleNominal(name, val) {
+  DB.updateCommitteeRole(name, val);
 }
 function removeRole(name) {
   if (confirm('Hapus peran "' + name + '"?')) { DB.removeCommitteeRole(name); renderRoles(); }

@@ -1,6 +1,14 @@
--- Jalankan di SQL Editor Supabase untuk optimasi performa
--- Mengganti 11 query parallel jadi 1 panggilan RPC
+-- ============================================================
+-- MIGRASI: Nominal Kepanitiaan
+-- Jalankan SEKALI di Supabase SQL Editor (project settings → SQL).
+-- Aman & additif: hanya menambah kolom baru + memperbarui fungsi RPC.
+-- ============================================================
 
+-- 1. Tambah kolom nominal di committee_roles (default 0)
+ALTER TABLE committee_roles
+  ADD COLUMN IF NOT EXISTS nominal INTEGER NOT NULL DEFAULT 0;
+
+-- 2. Perbarui fungsi get_all_data agar ikut mengirim kolom nominal
 CREATE OR REPLACE FUNCTION get_all_data()
 RETURNS JSON
 LANGUAGE plpgsql

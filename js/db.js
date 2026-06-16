@@ -59,7 +59,7 @@ const DB = {
     this._data = {
       admins: raw.admins || [],
       subject_list: (raw.subject_list||[]).map(r => r.name),
-      committee_roles: (raw.committee_roles||[]).map(r => r.name),
+      committee_roles: (raw.committee_roles||[]).map(r => (typeof r === 'string' ? { name: r, nominal: 0 } : { name: r.name, nominal: r.nominal || 0 })),
       classes: (raw.classes||[]),
       teachers: (raw.teachers||[]).map(t => ({
         id: t.id, name: t.name, subjects: t.subjects || [],
@@ -111,7 +111,7 @@ const DB = {
     tasks.push((async () => {
       try {
         await this.supabase.from('committee_roles').delete().neq('name', '');
-        if (d.committee_roles.length) await this.supabase.from('committee_roles').insert(d.committee_roles.map(r => ({ name: r })));
+        if (d.committee_roles.length) await this.supabase.from('committee_roles').insert(d.committee_roles.map(r => ({ name: r.name, nominal: r.nominal || 0 })));
       } catch (e) { console.warn('Sync committee_roles gagal:', e); }
     })());
 
@@ -200,7 +200,7 @@ const DB = {
     this._data = {
       admins: [{ id: 'a1', username: 'admin', password: 'admin123', name: 'Admin Utama' }],
       subject_list: ['Social','Civic','English','Indonesian','Math','Science',"Qur'an",'IFE','Javanese','ICT','Sport'],
-      committee_roles: ['Ketua Panitia', 'Sekretaris', 'Tim Teknis'],
+      committee_roles: [{ name: 'Ketua Panitia', nominal: 0 }, { name: 'Sekretaris', nominal: 0 }, { name: 'Tim Teknis', nominal: 0 }],
       teachers: [
         { id:'g1',  name:'Adila Rahmah, M.Pd', subjects:[], isActive:true, hidden:false },
         { id:'g2',  name:'Ahmad Bayu Abdullah, M.Pd', subjects:[], isActive:true, hidden:false },
@@ -307,6 +307,8 @@ const DB = {
   // ─── TEACHERS ───
   getTeachers() { return this._data.teachers.filter(t => t.isActive && !t.hidden); },
   getAllTeachers() { return this._data.teachers; },
+  // Untuk rekap admin: sertakan guru tersembunyi, kecualikan yang sudah dihapus (isActive=false)
+  getRekapTeachers() { return this._data.teachers.filter(t => t.isActive); },
   addTeacher(name, subjects) {
     const t = { id: 'g' + Date.now(), name, subjects: subjects || [], isActive: true, hidden: false };
     this._data.teachers.push(t);
@@ -344,6 +346,7 @@ const DB = {
     if (name !== null && name !== undefined) a.name = name;
     if (unit !== null && unit !== undefined) a.unit = unit;
     if (rate !== null && rate !== undefined) a.rate = parseInt(rate)||0;
+    this._recalcAll();
     this._saveToSupabase();
   },
   deleteActivity(id) {
@@ -398,6 +401,23 @@ const DB = {
     return this._data.submissions.find(s => s.periodId === periodId && s.teacherName === teacherName);
   },
 
+  // Hitung ulang 1 submission: sinkron rate item ke rate komponen terbaru + tambah nominal panitia (1×)
+  _recalcSubmission(sub) {
+    let t = 0;
+    sub.items.forEach(it => {
+      const act = this._data.activities.find(a => a.id === it.activityId);
+      if (act) it.rate = act.rate;
+      const q = (it.approvedQty !== null && it.approvedQty !== undefined) ? it.approvedQty : it.quantity;
+      it.subtotal = (q || 0) * (it.rate || 0);
+      t += it.subtotal;
+    });
+    t += this.getCommitteeNominal(sub.committeeRole);
+    sub.total = t;
+  },
+  _recalcAll() {
+    (this._data.submissions || []).forEach(s => this._recalcSubmission(s));
+  },
+
   addSubmission(periodId, teacherName, subjects, committeeRole, items, submittedBy) {
     const activities = this.getActiveActivities();
     const subItems = items.map(item => {
@@ -411,17 +431,17 @@ const DB = {
         quantity: qty, rate, subtotal: qty * rate, approvedQty: null
       };
     });
-    const total = subItems.reduce((s, i) => s + i.subtotal, 0);
     const sub = {
       id: 's' + Date.now(), periodId, teacherName,
       subjects: Array.isArray(subjects) ? subjects : (subjects ? subjects.split(',').map(s=>s.trim()) : []),
       committeeRole: committeeRole || '',
-      status: 'submitted', total, adminNotes: '',
+      status: 'submitted', total: 0, adminNotes: '',
       submittedBy: submittedBy || 'guru',
       submittedAt: new Date().toISOString(), approvedAt: new Date().toISOString(),
       items: subItems
     };
     sub.items.forEach(item => { item.approvedQty = item.quantity; });
+    this._recalcSubmission(sub);
     this._data.submissions.push(sub);
     this._saveToSupabase();
     return sub;
@@ -435,8 +455,7 @@ const DB = {
     const v = parseInt(value) || 0;
     if (field === 'quantity') { item.quantity = v; item.approvedQty = v; }
     else if (field === 'approvedQty') { item.approvedQty = v; item.quantity = v; }
-    item.subtotal = item.quantity * item.rate;
-    sub.total = sub.items.reduce((sum, i) => sum + ((i.approvedQty !== null ? i.approvedQty : i.quantity) * i.rate), 0);
+    this._recalcSubmission(sub);
     this._saveToSupabase();
   },
 
@@ -461,7 +480,7 @@ const DB = {
       item.approvedQty = v;
       item.subtotal = v * item.rate;
     }
-    sub.total = sub.items.reduce((sum, i) => sum + ((i.approvedQty !== null ? i.approvedQty : i.quantity) * i.rate), 0);
+    this._recalcSubmission(sub);
     this._saveToSupabase();
   },
 
@@ -469,6 +488,7 @@ const DB = {
     const sub = this._data.submissions.find(s => s.id === submissionId);
     if (!sub) return;
     sub.committeeRole = role || '';
+    this._recalcSubmission(sub);
     this._saveToSupabase();
   },
 
@@ -487,10 +507,7 @@ const DB = {
     const sub = this._data.submissions.find(s => s.id === submissionId);
     if (!sub) return;
     sub.items.forEach(item => { if (item.approvedQty === null) item.approvedQty = item.quantity; });
-    sub.total = sub.items.reduce((sum, i) => {
-      const q = i.approvedQty !== null ? i.approvedQty : i.quantity;
-      return sum + (q * i.rate);
-    }, 0);
+    this._recalcSubmission(sub);
     sub.status = 'approved'; sub.approvedAt = new Date().toISOString();
     this._saveToSupabase();
   },
@@ -555,16 +572,28 @@ const DB = {
 
   // ─── COMMITTEE ROLES ───
   getCommitteeRoles() {
-    return this._data.committee_roles || ['Ketua Panitia', 'Sekretaris', 'Tim Teknis'];
+    return (this._data.committee_roles || []).map(r => (typeof r === 'string' ? { name: r, nominal: 0 } : r));
   },
-  addCommitteeRole(name) {
-    if (!this._data.committee_roles) this._data.committee_roles = ['Ketua Panitia', 'Sekretaris', 'Tim Teknis'];
-    this._data.committee_roles.push(name);
+  getCommitteeNominal(name) {
+    if (!name) return 0;
+    const r = (this._data.committee_roles || []).find(x => (x.name ?? x) === name);
+    return r ? (r.nominal || 0) : 0;
+  },
+  addCommitteeRole(name, nominal) {
+    if (!this._data.committee_roles) this._data.committee_roles = [];
+    this._data.committee_roles.push({ name, nominal: parseInt(nominal) || 0 });
+    this._saveToSupabase();
+  },
+  updateCommitteeRole(name, nominal) {
+    const r = (this._data.committee_roles || []).find(x => (x.name ?? x) === name);
+    if (r && typeof r === 'object') r.nominal = parseInt(nominal) || 0;
+    this._recalcAll();
     this._saveToSupabase();
   },
   removeCommitteeRole(name) {
     if (this._data.committee_roles) {
-      this._data.committee_roles = this._data.committee_roles.filter(r => r !== name);
+      this._data.committee_roles = this._data.committee_roles.filter(r => (r.name ?? r) !== name);
+      this._recalcAll();
       this._saveToSupabase();
     }
   }

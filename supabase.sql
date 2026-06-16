@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS subject_list (
 -- 3. TABEL COMMITTEE ROLES (opsi kepanitiaan)
 CREATE TABLE IF NOT EXISTS committee_roles (
   id SERIAL PRIMARY KEY,
-  name TEXT UNIQUE NOT NULL
+  name TEXT UNIQUE NOT NULL,
+  nominal INTEGER NOT NULL DEFAULT 0
 );
 
 -- 4. TABEL CLASSES (kelas dengan jumlah siswa)
@@ -118,8 +119,8 @@ INSERT INTO subject_list (name) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- Committee roles
-INSERT INTO committee_roles (name) VALUES
-  ('Ketua Panitia'), ('Sekretaris'), ('Tim Teknis')
+INSERT INTO committee_roles (name, nominal) VALUES
+  ('Ketua Panitia', 0), ('Sekretaris', 0), ('Tim Teknis', 0)
 ON CONFLICT (name) DO NOTHING;
 
 -- Classes (kelas dengan jumlah siswa)
@@ -230,7 +231,7 @@ BEGIN
   SELECT json_build_object(
     'admins',            (SELECT json_agg(row_to_json(t)) FROM (SELECT id, username, password, name FROM admins) t),
     'subject_list',      (SELECT json_agg(row_to_json(t)) FROM (SELECT name FROM subject_list ORDER BY name) t),
-    'committee_roles',   (SELECT json_agg(row_to_json(t)) FROM (SELECT name FROM committee_roles ORDER BY name) t),
+    'committee_roles',   (SELECT json_agg(row_to_json(t)) FROM (SELECT name, nominal FROM committee_roles ORDER BY name) t),
     'classes',           (SELECT json_agg(row_to_json(t)) FROM (SELECT id, name, total FROM classes ORDER BY name) t),
     'teachers',          (SELECT json_agg(row_to_json(t)) FROM (SELECT id, name, is_active, hidden FROM teachers ORDER BY name) t),
     'activities',        (SELECT json_agg(row_to_json(t)) FROM (SELECT id, name, unit, rate, sort_order, is_active FROM activities ORDER BY sort_order) t),

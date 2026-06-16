@@ -452,17 +452,30 @@ body {
 #summaryTable thead tr:first-child th { text-align: center; }
 #summaryTable td { font-size: 12px; padding: 8px 10px; }
 #summaryCard .table-wrap { max-height: 70vh; overflow: auto; }
-#summaryTable thead { position: sticky; top: 0; z-index: 5; }
-#summaryTable thead th { background: var(--bg-dark); }
 
-/* Sticky columns */
-.sticky-col-2 { position: sticky; left: 0;    z-index: 3; background: inherit; white-space: nowrap; }
-.sticky-col-1 { position: sticky; left: 50px; z-index: 2; background: inherit; white-space: nowrap; }
-.table th.sticky-col-1, .table th.sticky-col-2 { background: var(--bg-dark); z-index: 4; }
-.table tbody tr:nth-child(even) td.sticky-col-1,
-.table tbody tr:nth-child(even) td.sticky-col-2 { background: rgba(255,255,255,.012); }
-.table tbody tr:nth-child(even):hover td.sticky-col-1,
-.table tbody tr:nth-child(even):hover td.sticky-col-2 { background: rgba(255,255,255,.03); }
+/* ── Freeze header & kolom kiri (sticky PER-SEL, bukan via <thead>/<tr>) ──
+   Cara ini aman di semua browser karena tidak ada sticky bertingkat (nested). */
+#summaryTable thead th { background: var(--bg-dark); }
+/* Baris header 1 nempel atas; baris header 2 nempel di bawahnya (offset = tinggi baris 1) */
+#summaryTable thead tr:first-child th { position: sticky; top: 0;   z-index: 6; height: 46px; padding: 6px 10px; box-sizing: border-box; }
+#summaryTable thead tr:last-child  th { position: sticky; top: 46px; z-index: 6; }
+
+/* Sticky columns — kolom kiri (No & Nama Guru) tetap saat scroll horizontal */
+.sticky-col-2 { position: sticky; left: 0; width: 50px; min-width: 50px; max-width: 50px; z-index: 12; background: var(--bg-card-alt); white-space: nowrap; }
+.sticky-col-1 { position: sticky; left: 50px; z-index: 11; background: var(--bg-card-alt); white-space: nowrap; box-shadow: 6px 0 8px -4px rgba(0,0,0,.45); }
+/* Sudut kiri-atas (header No & Nama Guru) — nempel atas DAN kiri, di atas segalanya */
+#summaryTable thead tr:first-child th.sticky-col-2 { left: 0;    top: 0; z-index: 20; }
+#summaryTable thead tr:first-child th.sticky-col-1 { left: 50px; top: 0; z-index: 19; }
+.table th.sticky-col-1, .table th.sticky-col-2 { background: var(--bg-dark); }
+/* Kunci latar solid di semua kondisi baris (ganjil/genap/hover) supaya tidak tembus pandang */
+.table tbody tr td.sticky-col-1,
+.table tbody tr td.sticky-col-2 { background: var(--bg-card-alt); }
+.table tbody tr:hover td.sticky-col-1,
+.table tbody tr:hover td.sticky-col-2 { background: #1B2E47; }
+
+/* Footer TOTAL — nempel bawah; bagian kiri (bawah Nama Guru) nempel kiri seperti kolomnya */
+#summaryTable tfoot td { position: sticky; bottom: 0; z-index: 13; background: var(--bg-dark); }
+#summaryTable tfoot td.foot-sticky { left: 0; z-index: 18; box-shadow: 6px 0 8px -4px rgba(0,0,0,.45); }
 
 /* ═══════════════════════════════════
    FORMS

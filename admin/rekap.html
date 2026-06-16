@@ -40,7 +40,7 @@
 
     <!-- Pagu per Komponen -->
     <div class="card mb-3">
-      <div class="card-header">Pagu per Komponen <small class="text-muted" style="text-transform:none">— ubah rate, semua nominal otomatis menyesuaikan</small></div>
+      <div class="card-header">Pagu per Komponen & Kepanitiaan <small class="text-muted" style="text-transform:none">— ubah rate/nominal, semua total otomatis menyesuaikan</small></div>
       <div class="card-body p-0">
         <div class="table-wrap">
           <table class="table">
@@ -118,7 +118,7 @@ function renderAll() {
   }
   const acts = DB.getPeriodActivities(pid);
   const subs = DB.getSubmissions(pid);
-  const teachers = DB.getTeachers();
+  const teachers = DB.getRekapTeachers();
 
   // ─── Keuangan ───
   const incomes = DB.getIncomes(pid);
@@ -148,21 +148,32 @@ function renderAll() {
     ? '<tr><td colspan="4" class="text-muted text-center py-3">Belum ada income</td></tr>'
     : incomes.map(i => '<tr><td>' + i.date + '</td><td>' + (i.description||'-') + '</td><td>' + rf(i.amount) + '</td><td><button class="btn btn-sm btn-danger" onclick="deleteIncome(\'' + i.id + '\')">Hapus</button></td></tr>').join('');
 
-  // ─── Rate Table ───
+  // ─── Rate Table (Pagu Komponen + Kepanitiaan) ───
   const rb = document.getElementById('rateBody');
-  if (acts.length === 0) {
-    rb.innerHTML = '<tr><td colspan="6" class="text-muted text-center py-3">Belum ada komponen</td></tr>';
-  } else {
-    rb.innerHTML = acts.map((a, i) => {
-      const totalQty = subs.reduce((s, sub) => {
-        const item = sub.items.find(it => it.activityId === a.id);
-        return s + (item ? (item.approvedQty || 0) : 0);
-      }, 0);
-      return '<tr><td>' + (i+1) + '</td><td>' + a.name + '</td><td>' + a.unit + '</td>' +
-        '<td><input type="number" class="form-control form-control-sm" style="width:120px" value="' + a.rate + '" onchange="updateRate(\'' + a.id + '\',this.value)"></td>' +
-        '<td>' + fn(totalQty) + '</td><td>' + rf(totalQty * a.rate) + '</td></tr>';
-    }).join('');
+  const esc = n => n.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  let rbHtml = '';
+  acts.forEach((a, i) => {
+    const totalQty = subs.reduce((s, sub) => {
+      const item = sub.items.find(it => it.activityId === a.id);
+      return s + (item ? (item.approvedQty || 0) : 0);
+    }, 0);
+    rbHtml += '<tr><td>' + (i+1) + '</td><td>' + a.name + '</td><td>' + a.unit + '</td>' +
+      '<td><input type="number" class="form-control form-control-sm" style="width:120px" value="' + a.rate + '" onchange="updateRate(\'' + a.id + '\',this.value)"></td>' +
+      '<td>' + fn(totalQty) + '</td><td>' + rf(totalQty * a.rate) + '</td></tr>';
+  });
+
+  const roles = DB.getCommitteeRoles();
+  if (roles.length) {
+    rbHtml += '<tr style="background:var(--bg-panel)"><td colspan="6" style="font-weight:700;font-size:11px;letter-spacing:.5px;color:var(--text-muted)">KEPANITIAAN</td></tr>';
+    roles.forEach((r, i) => {
+      const count = subs.filter(s => (s.committeeRole || '') === r.name).length;
+      rbHtml += '<tr><td>' + (i+1) + '</td><td>' + r.name + '</td><td>panitia</td>' +
+        '<td><input type="number" class="form-control form-control-sm" style="width:120px" min="0" value="' + (r.nominal||0) + '" onchange="updateRoleNominal(\'' + esc(r.name) + '\',this.value)"></td>' +
+        '<td>' + fn(count) + '</td><td>' + rf(count * (r.nominal||0)) + '</td></tr>';
+    });
   }
+
+  rb.innerHTML = rbHtml || '<tr><td colspan="6" class="text-muted text-center py-3">Belum ada komponen</td></tr>';
 
   // ─── Summary Table ───
   renderTable(pid, acts, subs, teachers);
@@ -171,13 +182,13 @@ function renderAll() {
 function renderTable(pid, acts, subs, teachers) {
   // Header row 1: activity names with colspan=2
   let h1 = '<tr><th class="sticky-col-2" rowspan="2">No</th><th class="sticky-col-1" rowspan="2">Nama Guru</th>' +
-    '<th rowspan="2">Mapel</th><th rowspan="2">Panitia</th>';
+    '<th rowspan="2">Mapel</th><th colspan="2" style="text-align:center">Panitia</th>';
   acts.forEach(a => {
     h1 += '<th colspan="2" style="text-align:center">' + a.name + '<br><small>' + rf(a.rate) + '/' + a.unit + '</small></th>';
   });
   h1 += '<th rowspan="2">Total</th></tr>';
-  // Header row 2: Jumlah / Nominal
-  let h2 = '<tr>';
+  // Header row 2: Nama/Nominal (Panitia) + Jumlah/Nominal (per komponen)
+  let h2 = '<tr><th style="min-width:120px">Amanah</th><th style="min-width:90px">Nominal</th>';
   acts.forEach(() => { h2 += '<th style="min-width:60px">Jumlah</th><th style="min-width:90px">Nominal</th>'; });
   h2 += '</tr>';
   document.getElementById('summaryHead').innerHTML = h1 + h2;
@@ -188,45 +199,49 @@ function renderTable(pid, acts, subs, teachers) {
   acts.forEach(a => { colTotals[a.id] = 0; colQtys[a.id] = 0; });
   let grandTotal = 0;
   let grandQty = 0;
+  let committeeTotal = 0;
 
   const sorted = [...teachers].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   const safeName = n => n.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
   sorted.forEach((t, i) => {
     const sub = subs.find(s => s.teacherName === t.name);
-    const mapel = sub ? (Array.isArray(sub.subjects) ? sub.subjects.join(', ') : (sub.subjects||'-')) : '-';
-    let row = '<tr><td class="sticky-col-2">' + (i+1) + '</td><td class="sticky-col-1">' + t.name + '</td><td>' + mapel + '</td><td>';
-    let rowTotal = 0;
+    const sn = safeName(t.name);
+    const subjects = sub ? sub.subjects : t.subjects;
+    const mapel = (Array.isArray(subjects) && subjects.length) ? subjects.join(', ') : (subjects || '-');
+    const curRole = sub ? (sub.committeeRole || '') : '';
+    const roleNominal = DB.getCommitteeNominal(curRole);
+    const hiddenTag = t.hidden ? ' <span class="badge badge-null" style="font-size:9px;padding:1px 5px;vertical-align:middle">tersembunyi</span>' : '';
+    let row = '<tr><td class="sticky-col-2">' + (i+1) + '</td><td class="sticky-col-1">' + t.name + hiddenTag + '</td><td>' + mapel + '</td>';
+    let rowTotal = roleNominal;
+    committeeTotal += roleNominal;
 
-    if (sub) {
-      const curRole = sub.committeeRole || '';
-      const sn = safeName(t.name);
-      row += '<input type="text" class="form-control form-control-sm" style="min-width:120px" list="committeeList" value="' + curRole.replace(/"/g, '&quot;') + '" onchange="updateRekapPanitia(\'' + sn + '\', this.value)"></td>';
-      acts.forEach(a => {
-        const item = sub.items.find(it => it.activityId === a.id);
-        const qty = item ? (item.approvedQty !== null && item.approvedQty !== undefined ? item.approvedQty : (item.quantity || 0)) : 0;
-        const cost = qty * a.rate;
-        colQtys[a.id] += qty;
-        colTotals[a.id] += cost;
-        rowTotal += cost;
-        grandQty += qty;
-        row += '<td style="text-align:center"><input type="number" min="0" class="form-control form-control-sm" style="width:70px;margin:auto;text-align:center" value="' + qty + '" onchange="updateRekapQty(\'' + sn + '\',\'' + a.id + '\',this.value)"></td><td>' + (qty > 0 ? rf(cost) : '<span class="text-muted">-</span>') + '</td>';
-      });
-    } else {
-      row += '<span class="text-muted">-</span></td>';
-      acts.forEach(() => { row += '<td class="text-muted" style="text-align:center">-</td><td class="text-muted">-</td>'; });
-    }
+    // Panitia: 2 kolom — Nama peran (bisa diedit) & Nominal di sebelahnya
+    row += '<td><input type="text" class="form-control form-control-sm" style="min-width:120px" list="committeeList" value="' + curRole.replace(/"/g, '&quot;') + '" onchange="updateRekapPanitia(\'' + sn + '\', this.value)"></td>';
+    row += '<td>' + (roleNominal > 0 ? rf(roleNominal) : '<span class="text-muted">-</span>') + '</td>';
+
+    // Komponen: selalu bisa diedit (admin boleh isi manual walau guru belum input)
+    acts.forEach(a => {
+      const item = sub ? sub.items.find(it => it.activityId === a.id) : null;
+      const qty = item ? (item.approvedQty !== null && item.approvedQty !== undefined ? item.approvedQty : (item.quantity || 0)) : 0;
+      const cost = qty * a.rate;
+      colQtys[a.id] += qty;
+      colTotals[a.id] += cost;
+      rowTotal += cost;
+      grandQty += qty;
+      row += '<td style="text-align:center"><input type="number" min="0" class="form-control form-control-sm" style="width:70px;margin:auto;text-align:center" value="' + qty + '" onchange="updateRekapQty(\'' + sn + '\',\'' + a.id + '\',this.value)"></td><td>' + (cost > 0 ? rf(cost) : '<span class="text-muted">-</span>') + '</td>';
+    });
 
     grandTotal += rowTotal;
-    row += '<td><strong>' + rf(rowTotal) + '</strong></td></tr>';
+    row += '<td><strong>' + (rowTotal > 0 ? rf(rowTotal) : '<span class="text-muted">-</span>') + '</strong></td></tr>';
     rows += row;
   });
   document.getElementById('summaryBody').innerHTML = rows;
 
   const dl = document.getElementById('committeeList');
-  if (dl) dl.innerHTML = DB.getCommitteeRoles().map(r => '<option value="' + r.replace(/"/g, '&quot;') + '"></option>').join('');
+  if (dl) dl.innerHTML = DB.getCommitteeRoles().map(r => '<option value="' + r.name.replace(/"/g, '&quot;') + '"></option>').join('');
 
-  let foot = '<tr style="font-weight:700;background:var(--bg-panel)"><td colspan="4">TOTAL</td>';
+  let foot = '<tr style="font-weight:700"><td colspan="2" class="foot-sticky">TOTAL</td><td colspan="2"></td><td>' + rf(committeeTotal) + '</td>';
   acts.forEach(a => {
     foot += '<td style="text-align:center">' + fn(colQtys[a.id]) + '</td><td>' + rf(colTotals[a.id]) + '</td>';
   });
@@ -240,19 +255,38 @@ function updateRate(activityId, val) {
   if (!isNaN(v) && v >= 0) { DB.updateActivity(activityId, null, null, v); renderAll(); }
 }
 
+// ─── Nominal Kepanitiaan ───
+function updateRoleNominal(name, val) {
+  const v = parseInt(val);
+  if (!isNaN(v) && v >= 0) { DB.updateCommitteeRole(name, v); renderAll(); }
+}
+
 // ─── Rekap Inline Edit ───
+// Buat submission baru atas nama guru bila admin mengisi manual padahal guru belum input
+function ensureSubmission(teacherName) {
+  const pid = getPid();
+  const t = DB.getRekapTeachers().find(x => x.name === teacherName);
+  return DB.addSubmission(pid, teacherName, t ? t.subjects : [], '', [], 'admin');
+}
+
 function updateRekapQty(teacherName, activityId, val) {
   const pid = getPid();
-  const sub = DB.getTeacherSubmission(pid, teacherName);
-  if (!sub) return;
+  let sub = DB.getTeacherSubmission(pid, teacherName);
+  if (!sub) {
+    if ((parseInt(val) || 0) <= 0) { renderAll(); return; }
+    sub = ensureSubmission(teacherName);
+  }
   DB.upsertSubmissionItem(sub.id, activityId, val);
   renderAll();
 }
 
 function updateRekapPanitia(teacherName, role) {
   const pid = getPid();
-  const sub = DB.getTeacherSubmission(pid, teacherName);
-  if (!sub) return;
+  let sub = DB.getTeacherSubmission(pid, teacherName);
+  if (!sub) {
+    if (!role) { renderAll(); return; }
+    sub = ensureSubmission(teacherName);
+  }
   DB.updateSubmissionCommitteeRole(sub.id, role);
   renderAll();
 }
@@ -319,6 +353,7 @@ function exportCSV() {
       rt += cost;
       csv += ',' + qty + ',' + cost;
     });
+    rt += DB.getCommitteeNominal(s.committeeRole);
     csv += ',' + rt + '\n';
   });
   const b = new Blob([csv], {type:'text/csv;charset=utf-8;'});

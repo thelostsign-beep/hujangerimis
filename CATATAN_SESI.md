@@ -8,6 +8,46 @@ Repo: https://github.com/thelostsign-beep/hujangerimis.git
 
 ---
 
+# Sesi 16 Juni 2026 — Nominal Kepanitiaan, Perbaikan Total & Freeze Tabel Rekap
+
+## 1. Nominal Kepanitiaan (fitur baru)
+- Tiap peran kepanitiaan kini punya **nominal** (sebelumnya cuma label).
+- Diatur admin di **Komponen → Opsi Kepanitiaan** (kolom Nominal, bisa edit) **dan** di **Rekap → Pagu per Komponen & Kepanitiaan** (edit langsung).
+- Konsep: nominal **tetap per peran, ditambahkan 1×** ke total insentif guru yang memegang peran tsb.
+- Form guru tetap **tidak** menampilkan nominal (admin-only) — hanya nama peran.
+- **Migrasi DB** (sudah dijalankan user di Supabase SQL Editor): `supabase_committee_nominal.sql`
+  - `ALTER TABLE committee_roles ADD COLUMN nominal INTEGER DEFAULT 0`
+  - update RPC `get_all_data` agar ikut mengirim `nominal`
+  - aman/additif, tidak mengubah data lama.
+- `committee_roles` di `db.js` kini array objek `{name, nominal}` (sebelumnya array string) — backward-compatible.
+
+## 2. Perbaikan Input/Output/Selisih (bug "tidak nyambung")
+- Penyebab: kartu Outcome/Selisih pakai `total` tersimpan (rate beku), tabel pakai rate terbaru → tidak sinkron.
+- Solusi: satu sumber hitung `_recalcSubmission()` / `_recalcAll()` di `db.js` — sinkronkan rate item ke rate komponen terbaru + tambah nominal panitia.
+- Dipakai di semua titik (submit, edit qty, edit panitia, approve, ubah rate, ubah nominal panitia). Ubah rate/nominal → semua total + Outcome + Selisih otomatis menyesuaikan & tersimpan.
+
+## 3. Input Manual di Rekap
+- Semua baris guru bisa diedit langsung (qty & panitia), **termasuk guru yang belum mengisi** — otomatis dibuatkan submission baru (`submittedBy: 'admin'`).
+- Guru **tersembunyi** (hidden) kini **tetap muncul di rekap** (via `DB.getRekapTeachers()` — sertakan hidden, kecualikan yang dihapus) dengan label "tersembunyi", tapi **tetap disembunyikan di form guru**.
+
+## 4. Form Guru
+- Validasi "isi minimal satu aktivitas" **dihapus** — guru boleh kirim tanpa mengisi komponen apa pun.
+
+## 5. Tampilan Tabel Rekap
+- Kolom **Panitia** jadi 2 sub-kolom: **Amanah | Nominal** (pola sama seperti komponen aktivitas).
+- **Freeze pane aman semua browser** (tidak pakai sticky bertingkat pada `<thead>`):
+  - Header 2 baris sticky per-sel (baris 1 `top:0` tinggi 46px, baris 2 `top:46px`).
+  - Kolom kiri No (lebar dikunci 50px) & Nama Guru sticky kiri, latar **solid** (`--bg-card-alt`) + bayangan pemisah → tidak tembus pandang saat scroll.
+  - Sudut header No/Nama Guru sticky atas+kiri (z-index tertinggi).
+  - Baris **TOTAL** (tfoot) sticky **bawah**; sel TOTAL kiri sticky **kiri** seperti kolom Nama Guru.
+
+## File tersentuh
+`js/db.js`, `admin/rekap.html`, `admin/komponen.html`, `guru/index.html`, `css/style.css`, `supabase.sql`, `supabase_rpc.sql`, `supabase_committee_nominal.sql` (baru).
+
+> Catatan: project Supabase (`humbozgfoxttkocqssrz`) **tidak** ada di akun Supabase MCP yang terhubung ke Claude — migrasi DB harus dijalankan manual oleh user di SQL Editor.
+
+---
+
 ## Yang sudah dikerjakan
 
 ### 1. Integrasi Supabase
@@ -78,6 +118,50 @@ ALTER TABLE ... DISABLE ROW LEVEL SECURITY; (lihat supabase_rls_fix.sql)
 
 ### Fitur belum
 - (tidak ada yang ditambahkan sesi ini selain Supabase integration)
+
+---
+
+## Rencana Fitur: Guru Bisa Koreksi Data Mandiri (via WA)
+*Direncanakan: 2 Juni 2026 — belum diimplementasikan*
+
+### Konsep yang dipilih
+**Opsi: Minta Koreksi via WhatsApp (Fonnte)**
+- Guru klik "Minta Koreksi" di form mereka
+- Sistem kirim WA otomatis ke nomor Waka Kurikulum
+- Waka klik link di WA → halaman approve sederhana (tanpa login)
+- Waka klik Izinkan → guru bisa edit data
+- Setelah guru submit ulang → status kembali `submitted`
+
+### Alur status submission
+```
+submitted → revision_requested → can_revise → submitted (ulang)
+                                            → rejected (kalau Waka tolak)
+```
+
+### Arsitektur teknis
+- **WA Gateway**: Fonnte (sudah punya akun)
+- **Pengirim WA**: 1 nomor admin terdaftar di Fonnte
+- **Penerima WA**: nomor Waka Kurikulum (1 nomor)
+- **Deploy**: Vercel (sudah ada, auto-deploy dari GitHub)
+- **Backend**: Vercel Serverless Functions di folder `api/`
+
+### File yang perlu dibuat
+| File | Fungsi |
+|---|---|
+| `api/send-wa.js` | Terima request dari guru, kirim WA via Fonnte, simpan token |
+| `api/approve.js` | Validasi token dari link WA, update status submission |
+| `approve.html` | Halaman sederhana untuk Waka: Izinkan / Tolak |
+| Tabel Supabase baru | `revision_tokens (id, token, submission_id, expires_at, used)` |
+
+### Environment Variables di Vercel (perlu ditambahkan)
+- `FONNTE_TOKEN` — dari dashboard Fonnte
+- `WAKA_WA_NUMBER` — nomor WA Waka Kurikulum (format: 628xxx)
+
+### Catatan penting
+- Panggilan ke Fonnte HARUS dari server (`api/`) — bukan dari browser, supaya token Fonnte tidak bocor ke publik
+- Token approve di-expire setelah 24 jam
+- Link approve format: `https://gerimismengundang.vercel.app/approve.html?token=xxx`
+- Perlu cek apakah folder `api/` sudah ada di project atau belum (kemungkinan belum — ini pertama kali pakai Vercel Functions)
 
 ---
 
