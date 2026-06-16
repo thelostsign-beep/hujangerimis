@@ -46,14 +46,15 @@ Repo: https://github.com/thelostsign-beep/hujangerimis.git
 
 > Catatan: project Supabase (`humbozgfoxttkocqssrz`) **tidak** ada di akun Supabase MCP yang terhubung ke Claude — migrasi DB harus dijalankan manual oleh user di SQL Editor.
 
+## 6. Notifikasi "Belum Mengisi Form" + URL /admin (lanjutan sesi)
+- **Rekap**: panel baru di bawah kartu keuangan menampilkan daftar guru yang **belum mengisi form** (badge jumlah + chip nama); kalau lengkap tampil "✓ Lengkap". Pakai `DB.getTeachers()` (kecualikan guru tersembunyi); guru yang sudah ada submission—termasuk yang diisi admin manual—tidak masuk daftar.
+- **`admin/index.html` (baru)**: buka `/admin` (atau `/admin/`) otomatis redirect ke `login.html`, dan login.html sendiri lompat ke dashboard bila sudah login. Jadi cukup satu URL `/admin` untuk login & kelola data.
+
 ## Status commit & deploy
-- Commit lokal: `0dc9933` "Nominal kepanitiaan + perbaikan total & freeze tabel rekap" di branch `main`.
-- **Push GAGAL (403)** — git/`gh` login sebagai akun **`smpabbs`** yang **bukan collaborator** di repo `thelostsign-beep/hujangerimis`. Commit masih lokal (`main` ahead 1), **belum sampai GitHub → Vercel belum deploy**.
-- Cara menyelesaikan (pilih satu):
-  - **A.** `gh auth login` ulang sebagai akun pemilik `thelostsign-beep` (atau akun ber-izin tulis), lalu `git push origin main`.
-  - **B.** Tambah `smpabbs` sebagai collaborator (Write) di repo settings → access, terima undangan, lalu push.
-  - **C.** Push pakai PAT akun ber-izin: `git push https://<TOKEN>@github.com/thelostsign-beep/hujangerimis.git main`.
-- Migrasi `supabase_committee_nominal.sql` **sudah dijalankan** user di Supabase (DB siap; tinggal kode ter-deploy).
+- Kendala push 403 **sudah teratasi**: `smpabbs` ditambahkan sebagai **collaborator (Write)** di repo `thelostsign-beep/hujangerimis` dan undangannya diterima. Push lewat akun `smpabbs` kini lancar.
+- Commit terkirim ke `main` → Vercel auto-deploy (https://gerimismengundang.vercel.app).
+- Migrasi `supabase_committee_nominal.sql` **sudah dijalankan** user di Supabase (DB siap).
+- **Catatan auth**: git/`gh` login sebagai `smpabbs` (keyring, token scope `repo`). Kalau suatu saat 403 lagi, cek status collaborator atau `gh auth login`.
 
 ---
 
