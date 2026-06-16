@@ -46,6 +46,15 @@ Repo: https://github.com/thelostsign-beep/hujangerimis.git
 
 > Catatan: project Supabase (`humbozgfoxttkocqssrz`) **tidak** ada di akun Supabase MCP yang terhubung ke Claude — migrasi DB harus dijalankan manual oleh user di SQL Editor.
 
+## Status commit & deploy
+- Commit lokal: `0dc9933` "Nominal kepanitiaan + perbaikan total & freeze tabel rekap" di branch `main`.
+- **Push GAGAL (403)** — git/`gh` login sebagai akun **`smpabbs`** yang **bukan collaborator** di repo `thelostsign-beep/hujangerimis`. Commit masih lokal (`main` ahead 1), **belum sampai GitHub → Vercel belum deploy**.
+- Cara menyelesaikan (pilih satu):
+  - **A.** `gh auth login` ulang sebagai akun pemilik `thelostsign-beep` (atau akun ber-izin tulis), lalu `git push origin main`.
+  - **B.** Tambah `smpabbs` sebagai collaborator (Write) di repo settings → access, terima undangan, lalu push.
+  - **C.** Push pakai PAT akun ber-izin: `git push https://<TOKEN>@github.com/thelostsign-beep/hujangerimis.git main`.
+- Migrasi `supabase_committee_nominal.sql` **sudah dijalankan** user di Supabase (DB siap; tinggal kode ter-deploy).
+
 ---
 
 ## Yang sudah dikerjakan
