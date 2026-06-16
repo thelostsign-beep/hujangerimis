@@ -94,6 +94,13 @@ const DB = {
     };
   },
 
+  // Format daftar nilai untuk filter PostgREST `not('col','in', ...)`.
+  // Tiap nilai dibungkus kutip ganda (kutip ganda di dalamnya digandakan) agar aman
+  // untuk koma/tanda petik, mis. ("Qur'an","Social").
+  _inList(arr) {
+    return '(' + (arr || []).map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',') + ')';
+  },
+
   async _saveToSupabase() {
     if (this._useLocal) return;
     const d = this._data;
@@ -102,16 +109,20 @@ const DB = {
 
     tasks.push((async () => {
       try {
-        await this.supabase.from('subject_list').delete().neq('name', '');
-        const rows = d.subject_list.map(s => ({ name: s }));
-        if (rows.length) await this.supabase.from('subject_list').insert(rows);
+        const names = d.subject_list || [];
+        if (!names.length) return; // jangan kosongkan tabel kalau tak ada data
+        await this.supabase.from('subject_list').upsert(names.map(s => ({ name: s })), { onConflict: 'name' });
+        // hapus hanya mapel yang sudah tidak ada di daftar
+        await this.supabase.from('subject_list').delete().not('name', 'in', this._inList(names));
       } catch (e) { console.warn('Sync subject_list gagal:', e); }
     })());
 
     tasks.push((async () => {
       try {
-        await this.supabase.from('committee_roles').delete().neq('name', '');
-        if (d.committee_roles.length) await this.supabase.from('committee_roles').insert(d.committee_roles.map(r => ({ name: r.name, nominal: r.nominal || 0 })));
+        const roles = d.committee_roles || [];
+        if (!roles.length) return; // jangan kosongkan tabel kalau tak ada data
+        await this.supabase.from('committee_roles').upsert(roles.map(r => ({ name: r.name, nominal: r.nominal || 0 })), { onConflict: 'name' });
+        await this.supabase.from('committee_roles').delete().not('name', 'in', this._inList(roles.map(r => r.name)));
       } catch (e) { console.warn('Sync committee_roles gagal:', e); }
     })());
 
@@ -151,11 +162,21 @@ const DB = {
 
     tasks.push((async () => {
       try {
-        if (d.period_activities.length) {
-          await this.supabase.from('period_activities').delete().neq('period_id', '');
-          await this.supabase.from('period_activities').insert(d.period_activities.map(pa => ({
-            period_id: pa.periodId, activity_id: pa.activityId
-          })));
+        const pas = d.period_activities || [];
+        if (!pas.length) return; // jangan kosongkan tabel kalau tak ada data
+        // upsert dulu (tidak menghapus apa pun)
+        await this.supabase.from('period_activities').upsert(
+          pas.map(pa => ({ period_id: pa.periodId, activity_id: pa.activityId })),
+          { onConflict: 'period_id,activity_id' }
+        );
+        // bersihkan komponen yang sudah tidak dipakai, per periode yang ada di state
+        const byPeriod = {};
+        pas.forEach(pa => { (byPeriod[pa.periodId] = byPeriod[pa.periodId] || []).push(pa.activityId); });
+        for (const periodId of Object.keys(byPeriod)) {
+          await this.supabase.from('period_activities')
+            .delete()
+            .eq('period_id', periodId)
+            .not('activity_id', 'in', this._inList(byPeriod[periodId]));
         }
       } catch (e) { console.warn('Sync period_activities gagal:', e); }
     })());
